@@ -131,6 +131,11 @@ export default function Home() {
     setItineraryLegs([]);
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    // onAuthStateChange will fire and setUser(null) automatically
+  };  
+
   return (
     <div className="relative h-screen w-full bg-background overflow-hidden font-sans selection:bg-primary/30 flex flex-col lg:block">
       {/* Full Background Map */}
@@ -337,7 +342,7 @@ export default function Home() {
               {user.email?.split('@')[0]}
             </span>
             <button 
-              onClick={() => signOut()}
+              onClick={() => handleSignOut()}
               className="h-8 px-3 bg-background border border-surface-border hover:bg-surface-hover text-muted hover:text-foreground rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all"
             >
               Sign Out
