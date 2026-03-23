@@ -1,0 +1,306 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Tooltip, LayerGroup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { createClient } from "@/lib/supabase/client";
+import { Badge, GlassCard, cn } from "@/components/ui";
+import { ExternalLink, Utensils, Compass, Plus, Minus, Beer, Clock, Footprints, Bus, Car, Bike, MoreHorizontal } from "lucide-react";
+import { renderToString } from "react-dom/server";
+import BionicText from "@/components/ui/BionicText";
+import { decodePostGISPoint } from "@/lib/utils/postgis";
+import { formatDuration } from "@/lib/utils/formatters";
+
+// Fix for default Leaflet icons in Next.js
+function createCustomIcon(category: string, status?: string) {
+  const isFood = category === "Food";
+  const isDrinks = category === "Drinks";
+  const isOther = category === "Other";
+  const colorClass = isFood ? "text-amber-400" : (isDrinks ? "text-purple-400" : (isOther ? "text-blue-400" : "text-emerald-500"));
+  const bgClass = isFood ? "bg-amber-400/20" : (isDrinks ? "bg-purple-400/20" : (isOther ? "bg-blue-400/20" : "bg-emerald-500/20"));
+  const borderClass = isFood ? "border-amber-400/50" : (isDrinks ? "border-purple-400/50" : (isOther ? "border-blue-400/50" : "border-emerald-500/50"));
+
+  const iconHtml = renderToString(
+    <div className={`relative flex items-center justify-center w-10 h-10 rounded-xl border ${borderClass} ${bgClass} backdrop-blur-sm transition-transform hover:scale-110 shadow-lg`}>
+      {isFood ? (
+        <Utensils className={`w-5 h-5 ${colorClass}`} />
+      ) : isDrinks ? (
+        <Beer className={`w-5 h-5 ${colorClass}`} />
+      ) : isOther ? (
+        <MoreHorizontal className={`w-5 h-5 ${colorClass}`} />
+      ) : (
+        <Compass className={`w-5 h-5 ${colorClass}`} />
+      )}
+
+      {status === 'processing' && (
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse border-2 border-zinc-950" />
+      )}
+    </div>
+  );
+
+  return L.divIcon({
+    html: iconHtml,
+    className: "custom-leaflet-icon",
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+}
+
+function createTransportIcon(duration: number, mode?: string) {
+  const ModeIcon = mode === 'walking' ? Footprints : (mode === 'driving' ? Car : (mode === 'bicycling' ? Bike : Bus));
+  
+  const iconHtml = renderToString(
+    <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-900/90 border border-zinc-700/50 backdrop-blur-md rounded-full shadow-lg">
+      <ModeIcon className="w-2.5 h-2.5 text-primary" />
+      <span className="text-[9px] font-black text-zinc-100 uppercase tracking-wider">{formatDuration(duration)}</span>
+    </div>
+  );
+
+  return L.divIcon({
+    html: iconHtml,
+    className: "custom-transport-icon",
+    iconSize: [60, 24],
+    iconAnchor: [30, 12],
+  });
+}
+
+function MapController({ selectedPin, polylinePoints }: { selectedPin: any | null, polylinePoints?: [number, number][] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (selectedPin) {
+      const position = decodePostGISPoint(selectedPin.location || selectedPin.geography);
+      if (position && !(position.lng === 0 && position.lat === 0)) {
+        map.flyTo([position.lat, position.lng], 15, { duration: 1.5 });
+      }
+    } else if (polylinePoints && polylinePoints.length > 0) {
+      const bounds = L.latLngBounds(polylinePoints);
+      map.fitBounds(bounds, { padding: [50, 50], duration: 1.5 });
+    }
+  }, [selectedPin, polylinePoints, map]);
+
+  return null;
+}
+
+// Helper to decode Google Polyline
+const decodePolyline = (encoded: string): [number, number][] => {
+  if (!encoded) return [];
+  // Standard polyline decoding logic (simplified for this turn, using a reliable regex-based or manual approach)
+  // For production, usually use '@googlemaps/polyline-codec'
+  let points: [number, number][] = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
+};
+
+export default function LeafletMap({ 
+  pins, 
+  selectedPin, 
+  activeItineraryStops = [], 
+  onAddStop,
+  onRemoveStop,
+  itineraryLegs = [],
+  showItinerary = true
+}: { 
+  pins: any[], 
+  selectedPin?: any | null,
+  activeItineraryStops?: string[],
+  onAddStop?: (pinId: string) => void,
+  onRemoveStop?: (pinId: string) => void,
+  itineraryLegs?: any[],
+  showItinerary?: boolean
+}) {
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const allPolylinePoints = showItinerary ? itineraryLegs.flatMap(leg => decodePolyline(leg.polyline)) : [];
+
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <MapContainer
+      center={[-33.8688, 151.2093]} 
+      zoom={12}
+      className="h-full w-full bg-zinc-950"
+      zoomControl={false}
+    >
+      <MapController selectedPin={selectedPin} polylinePoints={allPolylinePoints} />
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url={isDarkMode 
+          ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        }
+      />
+
+      {showItinerary && itineraryLegs.map((leg, idx) => {
+        const positions = decodePolyline(leg.polyline);
+        const midPoint = positions[Math.floor(positions.length / 2)];
+        
+        return (
+          <LayerGroup key={`leg-group-${idx}`}>
+            <Polyline
+              positions={positions}
+              pathOptions={{ 
+                color: '#10b981', 
+                weight: 4, 
+                opacity: 0.6,
+                dashArray: '10, 10',
+                lineJoin: 'round'
+              }}
+            />
+            {midPoint && leg.duration_seconds > 0 && (
+              <Marker 
+                position={midPoint} 
+                icon={createTransportIcon(leg.duration_seconds, leg.mode)}
+                interactive={false}
+              />
+            )}
+          </LayerGroup>
+        );
+      })}
+
+      {pins.map((pin) => {
+        const positionObj = decodePostGISPoint(pin.location || pin.geography);
+        if (!positionObj || (positionObj.lng === 0 && positionObj.lat === 0)) return null;
+
+        const position: [number, number] = [positionObj.lat, positionObj.lng];
+        const isFood = pin.category === "Food";
+        const isDrinks = pin.category === "Drinks";
+        const isOther = pin.category === "Other";
+        const isSelectedForItinerary = activeItineraryStops.includes(pin.id);
+        const stopIndex = activeItineraryStops.indexOf(pin.id);
+
+        return (
+          <Marker
+            key={pin.id}
+            position={position}
+            icon={createCustomIcon(pin.category, pin.status)}
+          >
+            <Popup className="custom-popup" maxWidth={320} minWidth={280}>
+              <div className="flex gap-4 p-4">
+                <div className="shrink-0 flex flex-col items-center gap-2">
+                  <div className={cn(
+                    "flex items-center justify-center w-10 h-10 rounded-xl border backdrop-blur-sm shadow-md",
+                    isFood ? 'border-amber-400/50 bg-amber-400/20' : 
+                    isDrinks ? 'border-purple-400/50 bg-purple-400/20' : 
+                    isOther ? 'border-blue-400/50 bg-blue-400/20' :
+                    'border-emerald-500/50 bg-emerald-500/20'
+                  )}>
+                    {isFood ? <Utensils className="w-5 h-5 text-amber-400" /> : 
+                     isDrinks ? <Beer className="w-5 h-5 text-purple-400" /> : 
+                     isOther ? <MoreHorizontal className="w-5 h-5 text-blue-400" /> :
+                     <Compass className="w-5 h-5 text-emerald-500" />}
+                  </div>
+
+                  {onAddStop && onRemoveStop && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        isSelectedForItinerary ? onRemoveStop(pin.id) : onAddStop(pin.id);
+                      }}
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg",
+                        isSelectedForItinerary 
+                          ? "bg-red-500/20 border border-red-500/50 text-red-500 hover:bg-red-500/30" 
+                          : "bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30"
+                      )}
+                    >
+                      {isSelectedForItinerary ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-zinc-100 text-base leading-tight tracking-tight line-clamp-2">
+                        {pin.venue_name || "Analysing..."}
+                      </h3>
+                      {isSelectedForItinerary && (
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-black">
+                          {stopIndex + 1}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <Badge 
+                        status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : (pin.status === 'processing' ? 'processing' : 'success'))}
+                        className={cn(
+                          "text-[9px] px-1.5 py-0",
+                          pin.category === 'Other' && "bg-blue-900/30 text-blue-400 border-blue-800/50",
+                          pin.category === 'Drinks' && "bg-purple-900/30 text-purple-400 border-purple-800/50"
+                        )}
+                      >
+                        {pin.category || 'Pending'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 mb-4">
+                    {pin.summary ? (
+                      pin.summary.split('\n').map((line: string, i: number) => (
+                        <p key={i} className="text-[11px] text-zinc-300 leading-relaxed font-medium">
+                          • <BionicText text={line.trim().startsWith('•') || line.trim().startsWith('-') ? line.trim().substring(1).trim() : line.trim()} />
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-xs text-zinc-500 italic">Generating summary...</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider truncate mr-2">{pin.city || 'Processing'}</span>
+                    {pin.source_url && (
+                      <a
+                        href={pin.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[10px] font-black text-primary hover:text-primary-hover transition-colors uppercase tracking-widest shrink-0"
+                      >
+                        Original
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </MapContainer>
+  );
+}

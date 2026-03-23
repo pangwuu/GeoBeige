@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #059669;
+  --color-primary-hover: #047857;
+  --color-accent: #fbbf24;
+}
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #09090b;
+    --surface: rgba(244, 244, 245, 0.8);
+    --surface-border: rgba(228, 228, 231, 0.5);
+    --card: #f4f4f5;
+    --card-border: #e4e4e7;
+    --input-bg: #f4f4f5;
+    --scrollbar-thumb: #d4d4d8;
+  }
+
+  .dark {
+    --background: #09090b;
+    --foreground: #f4f4f5;
+    --surface: rgba(24, 24, 27, 0.8);
+    --surface-border: rgba(39, 39, 42, 0.5);
+    --card: #18181b;
+    --card-border: #27272a;
+    --input-bg: #09090b;
+    --scrollbar-thumb: #27272a;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply antialiased transition-colors duration-300;
+    font-feature-settings: "cv02", "cv05", "cv08", "cv11";
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    @apply rounded-full hover:opacity-80 transition-colors;
+  }
+
+  /* Glassmorphism utility */
+  .glass {
+    background-color: var(--surface);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--surface-border);
+  }
+
+  .mobile-drawer-shadow {
+    box-shadow: 0 -10px 40px -10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .dark .mobile-drawer-shadow {
+    box-shadow: 0 -10px 40px -10px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Leaflet Overrides */
+.leaflet-container {
+  background-color: var(--background) !important;
+}
+
+/* Custom Popup Styles for GeoVibe */
+.custom-popup .leaflet-popup-content-wrapper {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--card-border);
+  @apply shadow-2xl p-0 overflow-hidden rounded-xl;
+  backdrop-filter: blur(8px);
+}
+
+.custom-popup .leaflet-popup-content {
+  @apply m-0 p-0;
+  width: auto !important;
+}
+
+.custom-popup .leaflet-popup-tip {
+  background-color: var(--background) !important;
+  border: 1px solid var(--card-border);
+}
+
+.custom-popup .leaflet-popup-close-button {
+  @apply text-zinc-500 hover:text-primary transition-colors p-2;
+}
+
+.leaflet-bar {
+  border: none !important;
+  @apply !shadow-xl;
+}
+
+.leaflet-bar a {
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+  border-color: var(--card-border) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--scrollbar-thumb) !important;
+}
+

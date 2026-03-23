@@ -1,0 +1,582 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { GlassCard, Badge, cn, Input } from "@/components/ui";
+// import { Search } from "lucide-react";
+// import { Edit3, Trash2 } from "lucide-react";
+
+import { 
+  Sparkles, 
+  MapPin, 
+  ArrowRight, 
+  Trash2, 
+  Save, 
+  Loader2, 
+  ChevronRight, 
+  X,
+  Navigation,
+  Clock,
+  CheckCircle2,
+  Edit3,
+  Search,
+  Utensils,
+  Beer,
+  Compass,
+  LogIn
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { getAISuggestedItinerary, generateRouteData, saveItinerary, getItineraries, deleteItinerary, updateItinerary } from "@/app/actions/itineraries";
+import { TransportMode } from "@/lib/google/directions";
+import { formatDuration, formatDistance } from "@/lib/utils/formatters";
+import { getUser } from "@/app/actions/auth";
+import { User } from "@supabase/supabase-js";
+
+interface ItineraryDrawerProps {
+  pins: any[];
+  activeStops: string[];
+  onRemoveStop: (pinId: string) => void;
+  onClear: () => void;
+  onAddStop: (pinId: string) => void;
+  onRoutesGenerated: (legs: any[]) => void;
+  onSignIn?: () => void;
+}
+
+export default function ItineraryDrawer({ 
+  pins, 
+  activeStops, 
+  onRemoveStop, 
+  onClear,
+  onAddStop,
+  onRoutesGenerated,
+  onSignIn
+}: ItineraryDrawerProps) {
+  const [mode, setMode] = useState<'manual' | 'ai' | 'list'>('manual');
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [transportMode, setTransportMode] = useState<TransportMode>('transit');
+  const [itineraryData, setItineraryData] = useState<{
+    title: string;
+    description: string;
+    legs: any[];
+  } | null>(null);
+  
+  const [savedItineraries, setSavedItineraries] = useState<any[]>([]);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [listSearch, setListSearch] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+
+  const selectedPins = activeStops.map(id => pins.find(p => p.id === id)).filter(Boolean);
+
+  useEffect(() => {
+    fetchUser();
+    if (mode === 'list') {
+      fetchItineraries();
+    }
+  }, [mode]);
+
+  const fetchUser = async () => {
+    const u = await getUser();
+    setUser(u);
+  };
+
+  const fetchItineraries = async () => {
+    setIsLoadingList(true);
+    const result = await getItineraries();
+    if (result.success) {
+      setSavedItineraries(result.itineraries || []);
+    }
+    setIsLoadingList(false);
+  };
+
+  const handleDeleteItinerary = async (id: string) => {
+    if (!confirm("Delete this itinerary?")) return;
+    const result = await deleteItinerary(id);
+    if (result.success) {
+      setSavedItineraries(prev => prev.filter(i => i.id !== id));
+    }
+  };
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt) return;
+    setIsGenerating(true);
+    const result = await getAISuggestedItinerary(aiPrompt);
+    if (result.success && result.suggestion) {
+      onClear();
+      // Add stops from Gemini suggestion
+      result.suggestion.stops.forEach((stop: any) => {
+        onAddStop(stop.pinId);
+      });
+      
+      setItineraryData({
+        title: result.suggestion.title,
+        description: result.suggestion.description,
+        legs: []
+      });
+      setMode('manual');
+    } else {
+      alert(result.error || "Failed to generate AI plan");
+    }
+    setIsGenerating(false);
+  };
+
+  const handleGenerateRoute = async () => {
+    if (activeStops.length < 2) return;
+    setIsGenerating(true);
+    const result = await generateRouteData(activeStops, transportMode);
+    if (result.success && result.legs) {
+      onRoutesGenerated(result.legs);
+      setItineraryData(prev => ({
+        title: prev?.title || "New Itinerary",
+        description: prev?.description || "",
+        legs: result.legs
+      }));
+    } else {
+      alert(result.error || "Failed to generate route");
+    }
+    setIsGenerating(false);
+  };
+
+  const handleSave = async () => {
+    if (!itineraryData || activeStops.length < 2) return;
+    setIsSaving(true);
+    
+    const result = await saveItinerary({
+      title: itineraryData.title,
+      description: itineraryData.description,
+      stops: activeStops.map(id => ({ pinId: id, dwell_time_minutes: 60 })),
+      legs: itineraryData.legs.map(leg => ({
+        from_pin_id: leg.from_pin_id,
+        to_pin_id: leg.to_pin_id,
+        polyline: leg.polyline,
+        duration_seconds: leg.duration_seconds,
+        distance_meters: leg.distance_meters,
+        mode: leg.mode
+      }))
+    });
+
+    if (result.success) {
+      alert("Itinerary saved successfully!");
+      onClear();
+      setItineraryData(null);
+    } else {
+      alert(result.error || "Failed to save itinerary");
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 h-full">
+      <div className="flex bg-zinc-950/50 p-1 rounded-xl border border-zinc-800">
+        <button 
+          onClick={() => setMode('manual')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
+            mode === 'manual' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+          )}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          Manual
+        </button>
+        <button 
+          onClick={() => setMode('ai')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
+            mode === 'ai' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+          )}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          AI
+        </button>
+        <button 
+          onClick={() => setMode('list')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
+            mode === 'list' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+          )}
+        >
+          <Save className="w-3.5 h-3.5" />
+          Saved
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-4 min-h-0">
+        <AnimatePresence mode="wait">
+          {mode === 'list' ? (
+            <motion.div 
+              key="list-mode"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex-1 flex flex-col gap-4 min-h-0"
+            >
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                <Input 
+                  placeholder="Search itineraries..." 
+                  className="pl-9 h-9 text-xs bg-zinc-950/50"
+                  value={listSearch}
+                  onChange={(e) => setListSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+                {!user ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                    <div className="w-16 h-16 rounded-3xl bg-zinc-900 flex items-center justify-center mb-4 border border-zinc-800 shadow-xl">
+                      <LogIn className="w-8 h-8 text-zinc-700" />
+                    </div>
+                    <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mb-2">Private Itineraries</p>
+                    <p className="text-[11px] text-zinc-600 font-medium leading-relaxed max-w-[200px]">
+                      Sign in to save paths, share with friends, and access your curated trips.
+                    </p>
+                  </div>
+                ) : isLoadingList ? (
+                  <div className="flex items-center justify-center h-40">
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  </div>
+                ) : savedItineraries.filter(i => i.title.toLowerCase().includes(listSearch.toLowerCase())).length > 0 ? (
+                  savedItineraries
+                    .filter(i => i.title.toLowerCase().includes(listSearch.toLowerCase()))
+                    .map((itin) => (
+                      <SavedItineraryCard 
+                        key={itin.id} 
+                        itinerary={itin} 
+                        onDelete={() => handleDeleteItinerary(itin.id)}
+                        onLoad={() => {
+                          onClear();
+                          itin.stops.sort((a: any, b: any) => a.stop_order - b.stop_order).forEach((s: any) => onAddStop(s.pin_id));
+                          onRoutesGenerated(itin.legs);
+                          setMode('manual');
+                        }}
+                      />
+                    ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Save className="w-8 h-8 text-zinc-800 mb-2" />
+                    <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-widest">No Itineraries Found</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : mode === 'ai' ? (
+            <motion.div 
+              key="ai-mode"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-3 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20"
+            >
+              <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                Gemini Intelligence
+              </h4>
+              <p className="text-[11px] text-zinc-400 font-medium">Describe your ideal night out, and Gemini will curate the best path from your saved pins.</p>
+              <div className="relative">
+                <textarea 
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g., A romantic date night in Newtown with 3 stops, starting with an activity then dinner..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-100 placeholder:text-zinc-600 focus:ring-1 focus:ring-primary outline-none min-h-[100px] resize-none"
+                />
+              </div>
+              <button 
+                onClick={handleAiGenerate}
+                disabled={isGenerating || !aiPrompt}
+                className="w-full py-3 bg-primary text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Plan with AI
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="manual-mode"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex-1 flex flex-col gap-4 min-h-0"
+            >
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">
+                  {activeStops.length} {activeStops.length === 1 ? 'Stop' : 'Stops'} Selected
+                </h3>
+                {activeStops.length > 0 && (
+                  <button onClick={onClear} className="text-[10px] text-red-400 font-bold hover:underline uppercase tracking-wider">
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-2 flex-1 overflow-y-auto pr-1 min-h-0 custom-scrollbar">
+                {selectedPins.length > 0 ? (
+                  selectedPins.map((pin, idx) => (
+                    <div key={pin.id} className="group relative">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800/50 group-hover:bg-zinc-800/80 transition-all">
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-black text-zinc-400 group-hover:text-primary transition-colors">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-zinc-100 truncate tracking-tight">{pin.venue_name}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">{pin.city}</span>
+                            <Badge 
+                              status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : 'success')} 
+                              className={cn(
+                                "text-[8px] px-1 py-0 h-3 flex items-center leading-none",
+                                pin.category === 'Drinks' && "bg-purple-900/30 text-purple-400 border-purple-800/50",
+                                pin.category === 'Other' && "bg-blue-900/30 text-blue-400 border-blue-800/50"
+                              )}
+                            >
+                              {pin.category}
+                            </Badge>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => onRemoveStop(pin.id)}
+                          className="p-1.5 opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      
+                      {idx < selectedPins.length - 1 && (
+                        <div className="ml-6 py-1 flex items-center gap-3">
+                          <div className="h-10 border-l-2 border-dashed border-zinc-800 ml-[-1px] shrink-0" />
+                          
+                          {/* Timing/Distance for this leg if calculated */}
+                          {itineraryData?.legs[idx] && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-zinc-950/50 border border-zinc-800/50 rounded-full animate-in fade-in slide-in-from-left-2 duration-300">
+                              <Clock className="w-2.5 h-2.5 text-zinc-500" />
+                              <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
+                                {formatDuration(itineraryData.legs[idx].duration_seconds)}
+                              </span>
+                              <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-wider">
+                                {formatDistance(itineraryData.legs[idx].distance_meters)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
+                    <div className="w-16 h-16 rounded-3xl bg-zinc-900 flex items-center justify-center mb-4 border border-zinc-800 shadow-xl">
+                      <MapPin className="w-8 h-8 text-zinc-700" />
+                    </div>
+                    <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mb-2">Build Your Trip</p>
+                    <p className="text-[11px] text-zinc-600 font-medium leading-relaxed max-w-[200px]">
+                      Select markers on the map sequentially to build your perfect night out.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {activeStops.length >= 2 && (
+                <div className="pt-4 border-t border-zinc-800/50 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Transport Mode</label>
+                      {itineraryData?.legs.length ? (
+                         <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">
+                              Total: {formatDuration(itineraryData.legs.reduce((acc, l) => acc + (l.duration_seconds || 0), 0))}
+                            </span>
+                         </div>
+                      ) : null}
+                    </div>
+                    <div className="flex gap-2">
+                      {(['transit', 'walking', 'driving'] as TransportMode[]).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setTransportMode(m)}
+                          className={cn(
+                            "flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all",
+                            transportMode === m 
+                              ? "bg-primary/10 text-primary border-primary/30" 
+                              : "bg-zinc-950 text-zinc-600 border-zinc-900 hover:border-zinc-800"
+                          )}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {itineraryData?.legs.length ? (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                         <div className="flex items-center gap-2 text-emerald-500 mb-1">
+                           <CheckCircle2 className="w-4 h-4" />
+                           <span className="text-[10px] font-black uppercase tracking-widest">Route Calculated</span>
+                         </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Itinerary Name</label>
+                          <Input 
+                            value={itineraryData.title}
+                            onChange={(e) => setItineraryData({ ...itineraryData, title: e.target.value })}
+                            className="h-9 py-1 text-xs bg-zinc-950 border-zinc-800 font-bold"
+                            placeholder="E.g., Newtown Food Crawl"
+                          />
+                        </div>
+                      </div>
+                      {!user ? (
+                        <div className="p-4 rounded-xl bg-zinc-950/50 border border-zinc-800 text-center">
+                          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-3">Sign in to save this trip</p>
+                          <button 
+                            onClick={onSignIn}
+                            className="w-full py-3 bg-zinc-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-zinc-700 transition-all"
+                          >
+                            Sign In
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="w-full py-4 bg-emerald-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                        >
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          Save Itinerary
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={handleGenerateRoute}
+                      disabled={isGenerating}
+                      className="w-full py-4 bg-primary text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+                      Generate Route & Timings
+                    </button>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function SavedItineraryCard({ itinerary, onDelete, onLoad }: { itinerary: any, onDelete: () => void, onLoad: () => void }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ title: itinerary.title, description: itinerary.description || "" });
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleUpdate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsUpdating(true);
+    const result = await updateItinerary(itinerary.id, editForm);
+    if (result.success) {
+      setIsEditing(false);
+      itinerary.title = editForm.title;
+      itinerary.description = editForm.description;
+    }
+    setIsUpdating(false);
+  };
+
+  return (
+    <div className="group bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-3 hover:bg-zinc-800/40 transition-all">
+      {isEditing ? (
+        <div className="space-y-3">
+          <Input 
+            value={editForm.title}
+            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            className="h-8 text-xs font-bold"
+          />
+          <textarea 
+            value={editForm.description}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-[10px] text-zinc-300 min-h-[50px] outline-none"
+          />
+          <div className="flex gap-2">
+            <button onClick={() => setIsEditing(false)} className="flex-1 py-1 bg-zinc-800 text-[10px] font-bold rounded-md">Cancel</button>
+            <button onClick={handleUpdate} className="flex-1 py-1 bg-primary text-white text-[10px] font-bold rounded-md">
+              {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Save"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-black text-zinc-100 truncate tracking-tight">{itinerary.title}</h4>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] text-zinc-500 font-medium line-clamp-1">{itinerary.description || "No description"}</p>
+                {itinerary.legs?.length > 0 && (
+                  <>
+                    <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                    <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest whitespace-nowrap">
+                      {formatDuration(itinerary.legs.reduce((acc: number, l: any) => acc + (l.duration_seconds || 0), 0))}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setIsEditing(true)} className="p-1 hover:bg-zinc-800 rounded text-zinc-600 hover:text-zinc-300"><Edit3 className="w-3 h-3" /></button>
+              <button onClick={onDelete} className="p-1 hover:bg-red-500/10 rounded text-zinc-600 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+            </div>
+          </div>
+          
+          <div className="space-y-1 mb-4 relative pl-3">
+            {/* Vertical Flow Line */}
+            <div className="absolute left-0 top-1 bottom-1 w-[1.5px] border-l border-dashed border-zinc-700/50" />
+            
+            {itinerary.stops.sort((a: any, b: any) => a.stop_order - b.stop_order).map((s: any, idx: number) => {
+              const category = s.pin?.category;
+              const isFood = category === 'Food';
+              const isDrinks = category === 'Drinks';
+              const isOther = category === 'Other';
+              const leg = itinerary.legs?.find((l: any) => l.from_pin_id === s.pin_id);
+              
+              return (
+                <div key={s.id} className="space-y-1">
+                  <div className="flex items-center gap-2 group/stop">
+                    <div className={cn(
+                      "flex items-center justify-center w-4 h-4 rounded-md border shrink-0",
+                      isFood ? "border-amber-400/30 bg-amber-400/10 text-amber-400" : 
+                      isDrinks ? "border-purple-400/30 bg-purple-400/10 text-purple-400" : 
+                      isOther ? "border-blue-400/30 bg-blue-400/10 text-blue-400" :
+                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                    )}>
+                      {isFood ? <Utensils className="w-2 h-2" /> : 
+                       isDrinks ? <Beer className="w-2 h-2" /> : 
+                       isOther ? <MoreHorizontal className="w-2 h-2" /> :
+                       <Compass className="w-2 h-2" />}
+                    </div>
+                    <span className="text-[10px] font-bold text-zinc-300 truncate tracking-tight group-hover/stop:text-zinc-100 transition-colors">
+                      {s.pin?.venue_name}
+                    </span>
+                  </div>
+                  
+                  {leg && idx < itinerary.stops.length - 1 && (
+                    <div className="flex items-center gap-1.5 ml-0.5 py-0.5">
+                      <Clock className="w-2 h-2 text-zinc-600" />
+                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-tighter">
+                        {formatDuration(leg.duration_seconds)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <button 
+            onClick={onLoad}
+            className="w-full py-1.5 bg-zinc-800/80 hover:bg-primary/20 text-zinc-400 hover:text-primary text-[9px] font-black uppercase tracking-widest rounded-lg border border-zinc-700/50 hover:border-primary/30 transition-all flex items-center justify-center gap-2"
+          >
+            <Navigation className="w-3 h-3" />
+            Load to Map
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
