@@ -4,7 +4,7 @@ import { useState } from "react";
 import { submitVideoUrl } from "@/app/actions/pins";
 import { searchPlaces, addManualPin } from "@/app/actions/manualPins";
 import { CommandCentre, Button, Input, cn, GlassCard } from "@/components/ui";
-import { Link2, Sparkles, CheckCircle2, AlertCircle, Search, MapPin, Check, Utensils, Compass, Beer, Loader2, X, MoreHorizontal } from "lucide-react";
+import { Link2, Sparkles, CheckCircle2, Search, MapPin, Utensils, Compass, Beer, Loader2, X, MoreHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function UnifiedSearchBar() {
@@ -32,7 +32,6 @@ export default function UnifiedSearchBar() {
     if (!value.trim()) return;
 
     if (isUrl(value)) {
-      // Handle Scraping Logic
       setLoading(true);
       setStatus('idle');
       setMessage("");
@@ -58,7 +57,6 @@ export default function UnifiedSearchBar() {
         setLoading(false);
       }
     } else {
-      // Handle Manual Search Logic
       if (value.length < 2) return;
       setManualLoading(true);
       setStatus('idle');
@@ -122,12 +120,12 @@ export default function UnifiedSearchBar() {
             {isUrl(inputValue) ? (
               <Link2 className={cn(
                 "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors",
-                loading ? "text-primary animate-pulse" : "text-zinc-500 group-focus-within:text-primary"
+                loading ? "text-primary animate-pulse" : "text-muted group-focus-within:text-primary"
               )} />
             ) : (
               <Search className={cn(
                 "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors",
-                manualLoading ? "text-primary animate-pulse" : "text-zinc-500 group-focus-within:text-primary"
+                manualLoading ? "text-primary animate-pulse" : "text-muted group-focus-within:text-primary"
               )} />
             )}
             <Input
@@ -166,7 +164,7 @@ export default function UnifiedSearchBar() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
-                  className="flex items-center gap-2 text-emerald-400"
+                  className="flex items-center gap-2 text-emerald-500"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Queued</span>
@@ -183,10 +181,10 @@ export default function UnifiedSearchBar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               className={cn(
-                "absolute -bottom-10 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-tight whitespace-nowrap shadow-xl border backdrop-blur-md",
+                "absolute -bottom-10 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-tight whitespace-nowrap shadow-xl border backdrop-blur-md glass",
                 status === 'success' 
-                  ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" 
-                  : "bg-red-950/80 text-red-400 border-red-800/50"
+                  ? "text-emerald-500 border-emerald-500/30" 
+                  : "text-red-500 border-red-500/30"
               )}
             >
               {message}
@@ -202,24 +200,24 @@ export default function UnifiedSearchBar() {
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 12, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            className="absolute left-0 right-0 z-[1100] max-h-[380px] overflow-y-auto custom-scrollbar p-2 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl"
+            className="absolute left-0 right-0 z-[1100] max-h-[380px] overflow-y-auto custom-scrollbar p-2 glass rounded-2xl shadow-2xl"
           >
             <div className="flex items-center justify-between px-2 py-1 mb-2">
-               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Places Found</span>
-               <button onClick={() => setSearchResults([])} className="text-zinc-500 hover:text-zinc-300">
+               <span className="text-[10px] font-black uppercase text-muted tracking-widest">Places Found</span>
+               <button onClick={() => setSearchResults([])} className="text-muted hover:text-foreground">
                  <X className="w-3.5 h-3.5" />
                </button>
             </div>
             <div className="space-y-2">
               {searchResults.map((place) => (
-                <GlassCard key={place.id} className="p-3 flex flex-col gap-3 group border-zinc-800/50 hover:border-zinc-700/50 transition-colors bg-zinc-950/40">
+                <GlassCard key={place.id} className="p-3 flex flex-col gap-3 group border-surface-border hover:border-primary/30 transition-colors">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-950 flex items-center justify-center shrink-0 border border-zinc-800">
-                      <MapPin className="w-4 h-4 text-zinc-500 group-hover:text-primary transition-colors" />
+                    <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center shrink-0 border border-surface-border">
+                      <MapPin className="w-4 h-4 text-muted group-hover:text-primary transition-colors" />
                     </div>
                     <div className="overflow-hidden flex-1">
-                      <p className="text-xs font-extrabold text-zinc-100 truncate leading-none mb-1">{place.text}</p>
-                      <p className="text-[10px] text-zinc-500 truncate font-medium">{place.place_name}</p>
+                      <p className="text-xs font-extrabold text-foreground truncate leading-none mb-1">{place.text}</p>
+                      <p className="text-[10px] text-muted truncate font-medium">{place.place_name}</p>
                     </div>
                   </div>
 
@@ -228,7 +226,7 @@ export default function UnifiedSearchBar() {
                       onClick={() => handleAddManual(place, 'Food')}
                       disabled={addingPinId === place.id}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-amber-400 hover:border-amber-400/30 hover:bg-amber-400/5",
+                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-amber-500 hover:border-amber-500/30 hover:bg-amber-500/5",
                         addingPinId === place.id && "opacity-50"
                       )}
                     >
@@ -239,7 +237,7 @@ export default function UnifiedSearchBar() {
                       onClick={() => handleAddManual(place, 'Drinks')}
                       disabled={addingPinId === place.id}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-purple-400 hover:border-purple-400/30 hover:bg-purple-400/5",
+                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-purple-500 hover:border-purple-500/30 hover:bg-purple-500/5",
                         addingPinId === place.id && "opacity-50"
                       )}
                     >
@@ -250,7 +248,7 @@ export default function UnifiedSearchBar() {
                       onClick={() => handleAddManual(place, 'Activity')}
                       disabled={addingPinId === place.id}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-emerald-400 hover:border-emerald-400/30 hover:bg-emerald-400/5",
+                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-emerald-500 hover:border-emerald-500/30 hover:bg-emerald-500/5",
                         addingPinId === place.id && "opacity-50"
                       )}
                     >
@@ -261,7 +259,7 @@ export default function UnifiedSearchBar() {
                       onClick={() => handleAddManual(place, 'Other')}
                       disabled={addingPinId === place.id}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-blue-400 hover:border-blue-400/30 hover:bg-blue-400/5",
+                        "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-blue-500 hover:border-blue-500/30 hover:bg-blue-500/5",
                         addingPinId === place.id && "opacity-50"
                       )}
                     >

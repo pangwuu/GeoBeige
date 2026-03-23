@@ -16,7 +16,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
-    "bg-zinc-900 border border-zinc-800 rounded-xl shadow-lg overflow-hidden",
+    "bg-background border border-surface-border rounded-xl shadow-lg overflow-hidden",
     className
   )}>
     {children}
@@ -53,9 +53,9 @@ export const Button = ({
 }) => {
   const variants = {
     primary: 'bg-primary hover:bg-primary-hover text-white shadow-md shadow-emerald-900/20',
-    secondary: 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100',
-    outline: 'border border-zinc-700 hover:bg-zinc-800 text-zinc-300',
-    ghost: 'hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-100'
+    secondary: 'bg-surface hover:bg-surface-hover text-foreground border border-surface-border',
+    outline: 'border border-surface-border hover:bg-surface text-muted hover:text-foreground',
+    ghost: 'hover:bg-surface-hover text-muted hover:text-foreground'
   };
 
   const sizes = {
@@ -100,7 +100,7 @@ export const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   <input 
     {...props}
     className={cn(
-      "w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-zinc-100 placeholder:text-zinc-500",
+      "w-full px-4 py-2.5 bg-background border border-surface-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-foreground placeholder:text-muted/60",
       className
     )}
   />
@@ -111,10 +111,10 @@ export const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInp
  */
 export const Badge = ({ children, status = 'default', className = "" }: { children: React.ReactNode, status?: 'default' | 'success' | 'processing' | 'accent', className?: string }) => {
   const styles = {
-    default: 'bg-zinc-800 text-zinc-400 border-zinc-700',
-    success: 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50',
-    processing: 'bg-amber-900/30 text-amber-400 border-amber-800/50 animate-pulse-slow',
-    accent: 'bg-amber-400/10 text-amber-400 border-amber-400/20'
+    default: 'bg-surface text-muted border-surface-border',
+    success: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    processing: 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse-slow',
+    accent: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
   };
   return (
     <span className={cn(

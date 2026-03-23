@@ -8,7 +8,6 @@ import { GlassCard, Badge, cn, Input } from "@/components/ui";
 import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deletePin, updatePin } from "@/app/actions/pins";
-import BionicText from "@/components/ui/BionicText";
 import ItineraryDrawer from "@/components/map/ItineraryDrawer";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import AuthModal from "@/components/auth/AuthModal";
@@ -20,10 +19,10 @@ import { User } from "@supabase/supabase-js";
 const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
   ssr: false,
   loading: () => (
-    <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
+    <div className="absolute inset-0 bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-zinc-500 font-medium text-sm text-center px-4">Initialising Map...</p>
+        <p className="text-muted font-medium text-sm text-center px-4">Initialising Map...</p>
       </div>
     </div>
   ),
@@ -133,7 +132,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative h-screen w-full bg-zinc-950 overflow-hidden font-sans selection:bg-primary/30 flex flex-col lg:block">
+    <div className="relative h-screen w-full bg-background overflow-hidden font-sans selection:bg-primary/30 flex flex-col lg:block">
       {/* Full Background Map */}
       <div className="absolute inset-0 z-0">
         <LeafletMap 
@@ -156,11 +155,11 @@ export default function Home() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[900] lg:hidden">
         <button 
           onClick={() => setIsSidebarOpen(true)}
-          className="h-12 px-6 bg-zinc-900/90 border border-zinc-800 backdrop-blur-xl rounded-full text-white font-bold text-sm flex items-center gap-2 shadow-2xl mobile-drawer-shadow transition-transform active:scale-95"
+          className="h-12 px-6 bg-surface border border-surface-border backdrop-blur-xl rounded-full text-foreground font-bold text-sm flex items-center gap-2 shadow-2xl mobile-drawer-shadow transition-transform active:scale-95"
         >
           <History className="w-4 h-4 text-primary" />
           <span>View Activity</span>
-          <ChevronUp className="w-4 h-4 text-zinc-500" />
+          <ChevronUp className="w-4 h-4 text-muted" />
         </button>
       </div>
 
@@ -195,8 +194,8 @@ export default function Home() {
               <Compass className="text-white w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tighter text-zinc-100">GeoVibe</h1>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">InstaNightPlanner</p>
+              <h1 className="text-xl font-black tracking-tighter text-foreground">GeoVibe</h1>
+              <p className="text-[10px] font-bold text-muted uppercase tracking-[0.2em]">InstaNightPlanner</p>
             </div>
           </div>
         </GlassCard>
@@ -205,27 +204,27 @@ export default function Home() {
         <GlassCard className="flex-1 p-5 flex flex-col gap-6 pointer-events-auto overflow-hidden relative">
           {/* Mobile Handle / Close */}
           <div className="lg:hidden flex items-center justify-between mb-2">
-            <div className="w-10 h-1 bg-zinc-800 rounded-full absolute top-3 left-1/2 -translate-x-1/2" />
-            <h2 className="text-lg font-black text-zinc-100 mt-2">
+            <div className="w-10 h-1 bg-surface-border rounded-full absolute top-3 left-1/2 -translate-x-1/2" />
+            <h2 className="text-lg font-black text-foreground mt-2">
               {activeTab === 'activity' ? 'Activity' : activeTab === 'search' ? 'Manual Add' : 'Itinerary'}
             </h2>
             <div className="flex items-center gap-2 mt-2">
-              <ThemeToggle className="h-8 w-8" />
+              <ThemeToggle className="h-8 w-8 shadow-none" />
               <button 
                 onClick={() => setIsSidebarOpen(false)}
-                className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400"
+                className="w-8 h-8 rounded-lg bg-background border border-surface-border flex items-center justify-center text-muted hover:text-foreground transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          <nav className="flex bg-zinc-950/50 p-1 rounded-xl border border-surface-border">
+          <nav className="flex bg-background/50 p-1 rounded-xl border border-surface-border">
             <button 
               onClick={() => setActiveTab('activity')}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
-                activeTab === 'activity' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                activeTab === 'activity' ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
               )}
             >
               <History className="w-3.5 h-3.5" />
@@ -235,13 +234,13 @@ export default function Home() {
               onClick={() => setActiveTab('itinerary')}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all relative",
-                activeTab === 'itinerary' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                activeTab === 'itinerary' ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
               )}
             >
               <MapPinned className="w-3.5 h-3.5" />
               Itinerary
               {activeItineraryStops.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-zinc-900">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-background">
                   {activeItineraryStops.length}
                 </span>
               )}
@@ -253,10 +252,10 @@ export default function Home() {
               <>
                 <div className="space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
                     <Input 
                       placeholder="Search venue, city, or vibe..." 
-                      className="pl-9 h-9 text-xs bg-zinc-950/50"
+                      className="pl-9 h-9 text-xs"
                       value={pinSearch}
                       onChange={(e) => setPinSearch(e.target.value)}
                     />
@@ -270,7 +269,7 @@ export default function Home() {
                           "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all",
                           categoryFilter === cat 
                             ? "bg-primary/10 text-primary border-primary/30 shadow-sm" 
-                            : "bg-zinc-950/30 text-zinc-500 border-zinc-800 hover:border-zinc-700"
+                            : "bg-background/50 text-muted border-surface-border hover:border-muted/50"
                         )}
                       >
                         {cat}
@@ -279,7 +278,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <h3 className="text-[11px] font-bold uppercase text-zinc-500 tracking-widest px-1">Recent Activity</h3>
+                <h3 className="text-[11px] font-bold uppercase text-muted tracking-widest px-1">Recent Activity</h3>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                   {filteredPins.length > 0 ? (
                     filteredPins.map((pin) => (
@@ -294,10 +293,10 @@ export default function Home() {
                     ))
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                      <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mb-3">
-                        <History className="w-6 h-6 text-zinc-700" />
+                      <div className="w-12 h-12 rounded-full bg-background border border-surface-border flex items-center justify-center mb-3">
+                        <History className="w-6 h-6 text-muted" />
                       </div>
-                      <p className="text-xs text-zinc-500 font-medium">No activity found.<br/>Try adjusting your search.</p>
+                      <p className="text-xs text-muted font-medium">No activity found.<br/>Try adjusting your search.</p>
                     </div>
                   )}
                 </div>
@@ -315,7 +314,7 @@ export default function Home() {
             )}
           </div>
 
-          <footer className="pt-4 border-t border-surface-border text-[10px] text-zinc-500 font-medium flex justify-between items-center">
+          <footer className="pt-4 border-t border-surface-border text-[10px] text-muted font-medium flex justify-between items-center">
             <span>&copy; 2026 GeoVibe</span>
             <span className="flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity cursor-help">
               <span className="w-1 h-1 bg-primary rounded-full animate-pulse" />
@@ -328,18 +327,18 @@ export default function Home() {
       {/* Floating Action Buttons (Desktop Only) */}
       <div className="hidden lg:flex fixed top-6 right-6 z-[900] gap-3">
         <ThemeToggle className="h-11 w-11" />
-        <button className="h-11 px-4 bg-surface border border-surface-border backdrop-blur-md rounded-xl text-zinc-300 font-bold text-xs hover:bg-zinc-800/50 hover:text-zinc-100 transition-all flex items-center gap-2 shadow-xl">
+        {/* <button className="h-11 px-4 bg-surface border border-surface-border backdrop-blur-md rounded-xl text-muted font-bold text-xs hover:bg-surface-hover hover:text-foreground transition-all flex items-center gap-2 shadow-xl">
           <Share2 className="w-4 h-4" />
           <span>Share Map</span>
-        </button>
+        </button> */}
         {user ? (
           <div className="flex items-center gap-3 bg-surface border border-surface-border backdrop-blur-md rounded-xl px-1.5 shadow-xl">
-            <span className="hidden sm:inline text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-2">
+            <span className="hidden sm:inline text-[10px] font-black text-muted uppercase tracking-widest pl-2">
               {user.email?.split('@')[0]}
             </span>
             <button 
               onClick={() => signOut()}
-              className="h-8 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all"
+              className="h-8 px-3 bg-background border border-surface-border hover:bg-surface-hover text-muted hover:text-foreground rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all"
             >
               Sign Out
             </button>
@@ -411,9 +410,9 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
 
   if (isEditing) {
     return (
-      <div className="p-3 rounded-xl border border-primary/30 bg-zinc-900 shadow-xl space-y-3">
+      <div className="p-3 rounded-xl border border-primary/30 bg-background shadow-xl space-y-3">
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-zinc-500 uppercase">Venue Name</label>
+          <label className="text-[10px] font-bold text-muted uppercase">Venue Name</label>
           <Input 
             value={editForm.venue_name}
             onChange={(e) => setEditForm({ ...editForm, venue_name: e.target.value })}
@@ -422,13 +421,13 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
         </div>
         
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-zinc-500 uppercase">Category</label>
+          <label className="text-[10px] font-bold text-muted uppercase">Category</label>
           <div className="flex gap-2">
             <button 
               onClick={() => setEditForm({ ...editForm, category: 'Food' })}
               className={cn(
                 "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Food' ? "bg-amber-400/10 text-amber-400 border-amber-400/30" : "bg-zinc-950 text-zinc-500 border-zinc-800"
+                editForm.category === 'Food' ? "bg-amber-500/10 text-amber-500 border-amber-500/30" : "bg-background text-muted border-surface-border"
               )}
             >
               <Utensils className="w-3 h-3" />
@@ -438,7 +437,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
               onClick={() => setEditForm({ ...editForm, category: 'Drinks' })}
               className={cn(
                 "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Drinks' ? "bg-purple-400/10 text-purple-400 border-purple-400/30" : "bg-zinc-950 text-zinc-500 border-zinc-800"
+                editForm.category === 'Drinks' ? "bg-purple-500/10 text-purple-500 border-purple-500/30" : "bg-background text-muted border-surface-border"
               )}
             >
               <Beer className="w-3 h-3" />
@@ -448,7 +447,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
               onClick={() => setEditForm({ ...editForm, category: 'Activity' })}
               className={cn(
                 "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Activity' ? "bg-emerald-400/10 text-emerald-400 border-emerald-400/30" : "bg-zinc-950 text-zinc-500 border-zinc-800"
+                editForm.category === 'Activity' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" : "bg-background text-muted border-surface-border"
               )}
             >
               <Compass className="w-3 h-3" />
@@ -458,7 +457,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
               onClick={() => setEditForm({ ...editForm, category: 'Other' })}
               className={cn(
                 "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Other' ? "bg-blue-400/10 text-blue-400 border-blue-400/30" : "bg-zinc-950 text-zinc-500 border-zinc-800"
+                editForm.category === 'Other' ? "bg-blue-500/10 text-blue-500 border-blue-500/30" : "bg-background text-muted border-surface-border"
               )}
             >
               <MoreHorizontal className="w-3 h-3" />
@@ -468,11 +467,11 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-zinc-500 uppercase">Vibe Summary</label>
+          <label className="text-[10px] font-bold text-muted uppercase">Vibe Summary</label>
           <textarea 
             value={editForm.summary}
             onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
-            className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-primary min-h-[60px]"
+            className="w-full px-3 py-2 bg-background border border-surface-border rounded-xl text-xs text-foreground outline-none focus:ring-1 focus:ring-primary min-h-[60px]"
             placeholder="Tell us the vibe..."
           />
         </div>
@@ -480,7 +479,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
         <div className="flex gap-2 pt-1">
           <button 
             onClick={handleCancel}
-            className="flex-1 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 text-[10px] font-bold hover:bg-zinc-700 transition-all flex items-center justify-center gap-1.5"
+            className="flex-1 py-1.5 rounded-lg bg-surface text-muted text-[10px] font-bold hover:bg-surface-hover hover:text-foreground transition-all flex items-center justify-center gap-1.5"
           >
             <X className="w-3 h-3" />
             Cancel
@@ -511,14 +510,14 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
       className={cn(
         "group relative p-3 rounded-xl border transition-all cursor-pointer",
         active 
-          ? "bg-zinc-800/80 border-primary/50 shadow-lg shadow-primary/5" 
-          : "border-surface-border bg-zinc-950/40 hover:bg-zinc-900/60"
+          ? "bg-surface border-primary/50 shadow-lg shadow-primary/5" 
+          : "border-surface-border bg-surface/40 hover:bg-surface/60"
       )}
     >
       <div className="flex justify-between items-start mb-1.5">
         <span className={cn(
           "font-bold text-sm transition-colors pr-2", 
-          active ? "text-white" : "text-zinc-200 group-hover:text-white"
+          active ? "text-foreground" : "text-foreground group-hover:text-primary transition-colors"
         )}>{title}</span>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
@@ -530,7 +529,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
               }}
               className={cn(
                 "p-1 rounded-lg transition-all",
-                isInItinerary ? "text-primary bg-primary/10" : "text-zinc-500 hover:text-primary hover:bg-primary/10"
+                isInItinerary ? "text-primary bg-primary/10" : "text-muted hover:text-primary hover:bg-primary/10"
               )}
               title={isInItinerary ? "Added to itinerary" : "Add to itinerary"}
             >
@@ -542,8 +541,8 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
             status={isFood ? 'accent' : (isOther ? 'default' : status)} 
             className={cn(
               "text-[9px] px-1.5 py-0",
-              isDrinks && "bg-purple-900/30 text-purple-400 border-purple-800/50",
-              isOther && "bg-blue-900/30 text-blue-400 border-blue-800/50"
+              isDrinks && "bg-purple-500/10 text-purple-500 border-purple-500/20",
+              isOther && "bg-blue-500/10 text-blue-500 border-blue-500/20"
             )}
           >
             {status === 'success' ? pin.category : 'AI'}
@@ -552,7 +551,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
           <div className="flex items-center">
             <button
               onClick={handleEdit}
-              className="p-1 hover:bg-primary/20 rounded-lg text-zinc-500 hover:text-primary transition-all"
+              className="p-1 hover:bg-primary/20 rounded-lg text-muted hover:text-primary transition-all"
               title="Edit Pin"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -560,7 +559,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="p-1 hover:bg-red-500/20 rounded-lg text-zinc-500 hover:text-red-400 transition-all disabled:opacity-50"
+              className="p-1 hover:bg-red-500/20 rounded-lg text-muted hover:text-red-400 transition-all disabled:opacity-50"
               title="Delete Pin"
             >
               {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
@@ -568,8 +567,8 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
           </div>
         </div>
       </div>
-      <div className="text-[11px] text-zinc-500 line-clamp-2 italic leading-relaxed">
-        <BionicText text={description} />
+      <div className="text-[11px] text-muted line-clamp-2 italic leading-relaxed">
+        {description}
       </div>
       <div className={cn(
         "absolute inset-0 border rounded-xl transition-all pointer-events-none",

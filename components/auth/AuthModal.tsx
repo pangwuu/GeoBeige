@@ -77,7 +77,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
               <GlassCard className="p-8 relative overflow-visible">
                 <button
                   onClick={onClose}
-                  className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 hover:text-white transition-colors shadow-xl"
+                  className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-background border border-surface-border flex items-center justify-center text-muted hover:text-foreground transition-colors shadow-xl"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -88,10 +88,10 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
                   </div>
                   
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black tracking-tight text-zinc-100">
+                    <h2 className="text-2xl font-black tracking-tight text-foreground">
                       {authType === 'signup' ? 'Create Account' : 'Welcome Back'}
                     </h2>
-                    <p className="text-zinc-500 text-sm font-medium">
+                    <p className="text-muted text-sm font-medium">
                       {sent 
                         ? (message || "Check your inbox for a confirmation link.") 
                         : "Sign in to save itineraries and curate your personal map."}
@@ -112,12 +112,12 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
                     </motion.div>
                   ) : (
                     <div className="w-full space-y-6">
-                      <nav className="flex bg-zinc-950/50 p-1 rounded-xl border border-zinc-800">
+                      <nav className="flex bg-background/50 p-1 rounded-xl border border-surface-border">
                         <button 
                           onClick={() => { setAuthType('password'); setError(""); }}
                           className={cn(
                             "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
-                            authType === 'password' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                            authType === 'password' ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
                           )}
                         >
                           <LogIn className="w-3 h-3" />
@@ -127,7 +127,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
                           onClick={() => { setAuthType('signup'); setError(""); }}
                           className={cn(
                             "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
-                            authType === 'signup' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                            authType === 'signup' ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
                           )}
                         >
                           <UserPlus className="w-3 h-3" />
@@ -137,7 +137,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
                           onClick={() => { setAuthType('magic'); setError(""); }}
                           className={cn(
                             "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
-                            authType === 'magic' ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                            authType === 'magic' ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
                           )}
                         >
                           <Mail className="w-3 h-3" />
@@ -147,7 +147,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
 
                       <form onSubmit={handleAuth} className="w-full space-y-4">
                         <div className="relative">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                           <Input
                             type="email"
                             placeholder="your@email.com"
@@ -160,7 +160,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
 
                         {authType !== 'magic' && (
                           <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                             <Input
                               type="password"
                               placeholder="••••••••"

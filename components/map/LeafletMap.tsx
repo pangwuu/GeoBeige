@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge, GlassCard, cn } from "@/components/ui";
 import { ExternalLink, Utensils, Compass, Plus, Minus, Beer, Clock, Footprints, Bus, Car, Bike, MoreHorizontal } from "lucide-react";
 import { renderToString } from "react-dom/server";
-import BionicText from "@/components/ui/BionicText";
 import { decodePostGISPoint } from "@/lib/utils/postgis";
 import { formatDuration } from "@/lib/utils/formatters";
 
@@ -34,7 +33,7 @@ function createCustomIcon(category: string, status?: string) {
       )}
 
       {status === 'processing' && (
-        <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse border-2 border-zinc-950" />
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse border-2 border-background" />
       )}
     </div>
   );
@@ -51,9 +50,9 @@ function createTransportIcon(duration: number, mode?: string) {
   const ModeIcon = mode === 'walking' ? Footprints : (mode === 'driving' ? Car : (mode === 'bicycling' ? Bike : Bus));
   
   const iconHtml = renderToString(
-    <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-900/90 border border-zinc-700/50 backdrop-blur-md rounded-full shadow-lg">
+    <div className="flex items-center gap-1.5 px-2 py-1 bg-surface border border-surface-border backdrop-blur-md rounded-full shadow-lg">
       <ModeIcon className="w-2.5 h-2.5 text-primary" />
-      <span className="text-[9px] font-black text-zinc-100 uppercase tracking-wider">{formatDuration(duration)}</span>
+      <span className="text-[9px] font-black text-foreground uppercase tracking-wider">{formatDuration(duration)}</span>
     </div>
   );
 
@@ -153,7 +152,7 @@ export default function LeafletMap({
     <MapContainer
       center={[-33.8688, 151.2093]} 
       zoom={12}
-      className="h-full w-full bg-zinc-950"
+      className="h-full w-full bg-background"
       zoomControl={false}
     >
       <MapController selectedPin={selectedPin} polylinePoints={allPolylinePoints} />
@@ -246,7 +245,7 @@ export default function LeafletMap({
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col mb-2.5">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-zinc-100 text-base leading-tight tracking-tight line-clamp-2">
+                      <h3 className="font-extrabold text-foreground text-base leading-tight tracking-tight line-clamp-2">
                         {pin.venue_name || "Analysing..."}
                       </h3>
                       {isSelectedForItinerary && (
@@ -260,8 +259,8 @@ export default function LeafletMap({
                         status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : (pin.status === 'processing' ? 'processing' : 'success'))}
                         className={cn(
                           "text-[9px] px-1.5 py-0",
-                          pin.category === 'Other' && "bg-blue-900/30 text-blue-400 border-blue-800/50",
-                          pin.category === 'Drinks' && "bg-purple-900/30 text-purple-400 border-purple-800/50"
+                          pin.category === 'Other' && "bg-blue-500/10 text-blue-500 border-blue-500/20",
+                          pin.category === 'Drinks' && "bg-purple-500/10 text-purple-500 border-purple-500/20"
                         )}
                       >
                         {pin.category || 'Pending'}
@@ -272,17 +271,17 @@ export default function LeafletMap({
                   <div className="space-y-1.5 mb-4">
                     {pin.summary ? (
                       pin.summary.split('\n').map((line: string, i: number) => (
-                        <p key={i} className="text-[11px] text-zinc-300 leading-relaxed font-medium">
-                          • <BionicText text={line.trim().startsWith('•') || line.trim().startsWith('-') ? line.trim().substring(1).trim() : line.trim()} />
+                        <p key={i} className="text-[11px] text-muted leading-relaxed font-medium">
+                          • {line.trim().startsWith('•') || line.trim().startsWith('-') ? line.trim().substring(1).trim() : line.trim()}
                         </p>
                       ))
                     ) : (
-                      <p className="text-xs text-zinc-500 italic">Generating summary...</p>
+                      <p className="text-xs text-muted italic">Generating summary...</p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider truncate mr-2">{pin.city || 'Processing'}</span>
+                  <div className="flex items-center justify-between pt-3 border-t border-surface-border">
+                    <span className="text-[10px] text-muted font-bold uppercase tracking-wider truncate mr-2">{pin.city || 'Processing'}</span>
                     {pin.source_url && (
                       <a
                         href={pin.source_url}
