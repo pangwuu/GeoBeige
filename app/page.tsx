@@ -283,6 +283,22 @@ useEffect(() => {
             </h2>
             <div className="flex items-center gap-2 mt-2">
               <ThemeToggle className="h-8 w-8 shadow-none" />
+              {user ? (
+                <button 
+                  onClick={() => handleSignOut()}
+                  className="h-8 px-3 bg-background border border-surface-border text-muted hover:text-foreground rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all"
+                >
+                  Sign Out
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="h-8 px-3 bg-primary text-white rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-1"
+                >
+                  <LogIn className="w-3 h-3" />
+                  Sign In
+                </button>
+              )}
               <button 
                 onClick={() => setIsSidebarOpen(false)}
                 className="w-8 h-8 rounded-lg bg-background border border-surface-border flex items-center justify-center text-muted hover:text-foreground transition-colors"
