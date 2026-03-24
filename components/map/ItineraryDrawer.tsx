@@ -18,10 +18,11 @@ import {
   Beer,
   Compass,
   LogIn,
-  MoreHorizontal
+  MoreHorizontal,
+  GripVertical
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { getAISuggestedItinerary, generateRouteData, saveItinerary, getItineraries, deleteItinerary, updateItinerary } from "@/app/actions/itineraries";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { getAISuggestedItinerary, generateRouteData, saveItinerary, getItineraries, deleteItinerary, updateItinerary, optimiseRoute } from "@/app/actions/itineraries";
 import { TransportMode } from "@/lib/google/directions";
 import { formatDuration, formatDistance } from "@/lib/utils/formatters";
 import { getUser } from "@/app/actions/auth";
@@ -30,6 +31,7 @@ import { User } from "@supabase/supabase-js";
 interface ItineraryDrawerProps {
   pins: any[];
   activeStops: string[];
+  onReorderStops: (newOrder: string[]) => void;
   onRemoveStop: (pinId: string) => void;
   onClear: () => void;
   onAddStop: (pinId: string) => void;
@@ -40,6 +42,7 @@ interface ItineraryDrawerProps {
 export default function ItineraryDrawer({ 
   pins, 
   activeStops, 
+  onReorderStops,
   onRemoveStop, 
   onClear,
   onAddStop,
@@ -111,6 +114,18 @@ export default function ItineraryDrawer({
       setMode('manual');
     } else {
       alert(result.error || "Failed to generate AI plan");
+    }
+    setIsGenerating(false);
+  };
+
+  const handleOptimise = async () => {
+    if (activeStops.length < 2) return;
+    setIsGenerating(true);
+    const result = await optimiseRoute(activeStops);
+    if (result.success && result.optimizedIds) {
+      onReorderStops(result.optimizedIds);
+    } else {
+      alert(result.error || "Failed to optimise route");
     }
     setIsGenerating(false);
   };
@@ -288,11 +303,23 @@ export default function ItineraryDrawer({
                 )}
               </div>
 
-              <div className="space-y-2 flex-1 overflow-y-auto pr-1 min-h-0 custom-scrollbar">
+              <Reorder.Group 
+                axis="y" 
+                values={activeStops} 
+                onReorder={onReorderStops}
+                className="space-y-2 flex-1 overflow-y-auto pr-1 min-h-0 custom-scrollbar"
+              >
                 {selectedPins.length > 0 ? (
                   selectedPins.map((pin, idx) => (
-                    <div key={pin.id} className="group relative">
+                    <Reorder.Item 
+                      key={pin.id} 
+                      value={pin.id}
+                      className="group relative"
+                    >
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-surface/50 border border-surface-border group-hover:bg-surface transition-all">
+                        <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-muted transition-colors">
+                          <GripVertical className="w-4 h-4" />
+                        </div>
                         <div className="w-6 h-6 rounded-full bg-background border border-surface-border flex items-center justify-center text-[10px] font-black text-muted group-hover:text-primary transition-colors">
                           {idx + 1}
                         </div>
@@ -321,7 +348,7 @@ export default function ItineraryDrawer({
                       </div>
                       
                       {idx < selectedPins.length - 1 && (
-                        <div className="ml-6 py-1 flex items-center gap-3">
+                        <div className="ml-10 py-1 flex items-center gap-3">
                           <div className="h-10 border-l-2 border-dashed border-surface-border ml-[-1px] shrink-0" />
                           
                           {itineraryData?.legs[idx] && (
@@ -338,7 +365,7 @@ export default function ItineraryDrawer({
                           )}
                         </div>
                       )}
-                    </div>
+                    </Reorder.Item>
                   ))
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
@@ -351,10 +378,21 @@ export default function ItineraryDrawer({
                     </p>
                   </div>
                 )}
-              </div>
+              </Reorder.Group>
 
               {activeStops.length >= 2 && (
                 <div className="pt-4 border-t border-surface-border space-y-4">
+                  {!itineraryData?.legs.length && (
+                    <button 
+                      onClick={handleOptimise}
+                      disabled={isGenerating}
+                      className="w-full py-2 bg-surface border border-surface-border text-foreground rounded-xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-surface-hover transition-all disabled:opacity-50"
+                    >
+                      {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-primary" />}
+                      Optimise Order
+                    </button>
+                  )}
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] font-black text-muted uppercase tracking-widest">Transport Mode</label>

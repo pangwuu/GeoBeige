@@ -23,8 +23,13 @@ export async function geocode(venueName: string, locationContext: string) {
 
     if (data.status === "ZERO_RESULTS") {
       console.warn(`DEBUG: Google Geocoding found no results for "${query}"`);
-      // Fallback: Try searching just the venue and the city if suburb-level fails
-      return await fallbackGeocode(venueName, apiKey);
+      // Fallback 1: Try Google Places Text Search (better for venues)
+      try {
+        return await googlePlaceSearch(venueName, locationContext, apiKey);
+      } catch (err) {
+        // Fallback 2: Try searching just the venue and the city if suburb-level fails
+        return await fallbackGeocode(venueName, apiKey);
+      }
     }
 
     throw new Error(`Google Geocoding failed with status: ${data.status}`);
@@ -32,6 +37,34 @@ export async function geocode(venueName: string, locationContext: string) {
     console.error("DEBUG: Geocoding Error:", error);
     throw error;
   }
+}
+
+async function googlePlaceSearch(venueName: string, locationContext: string, apiKey: string) {
+  const query = `${venueName} ${locationContext} Australia`;
+  console.log(`DEBUG: Trying Google Places Search for: "${query}"`);
+
+  // New Places API (Text Search) endpoint
+  const endpoint = "https://places.googleapis.com/v1/places:searchText";
+  
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'places.location,places.displayName,places.formattedAddress'
+    },
+    body: JSON.stringify({ textQuery: query, languageCode: 'en-AU' })
+  });
+
+  const data = await response.json();
+
+  if (data.places && data.places.length > 0) {
+    const { latitude, longitude } = data.places[0].location;
+    console.log(`DEBUG: Google Places Search success: [${longitude}, ${latitude}] - ${data.places[0].formattedAddress}`);
+    return { lng: longitude, lat: latitude };
+  }
+
+  throw new Error("Google Places Search found no results.");
 }
 
 async function fallbackGeocode(venueName: string, apiKey: string) {

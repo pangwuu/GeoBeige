@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Tooltip, LayerGroup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -64,18 +64,60 @@ function createTransportIcon(duration: number, mode?: string) {
   });
 }
 
-function MapController({ selectedPin, polylinePoints }: { selectedPin: any | null, polylinePoints?: [number, number][] }) {
+function MapController({ 
+  selectedPin, 
+  polylinePoints, 
+  onBoundsChange 
+}: { 
+  selectedPin: any | null, 
+  polylinePoints?: [number, number][],
+  onBoundsChange?: (bounds: { ne: [number, number], sw: [number, number] }) => void
+}) {
   const map = useMap();
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  });  
+  
+  useEffect(() => {
+    const handleMoveEnd = () => {
+      if (onBoundsChangeRef.current) {
+        const bounds = map.getBounds();
+        onBoundsChangeRef.current({
+          ne: [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
+          sw: [bounds.getSouthWest().lat, bounds.getSouthWest().lng]
+        });
+      }
+    };
+
+    map.on('moveend', handleMoveEnd);
+    handleMoveEnd();
+    return () => { map.off('moveend', handleMoveEnd); };
+  }, [map]); // only re-registers if the map instance itself changes
+
+
+  const lastSelectedPinId = useRef<string | null>(null);
+  const lastPolylineKey = useRef<string>("");
 
   useEffect(() => {
-    if (selectedPin) {
+    if (selectedPin && selectedPin.id !== lastSelectedPinId.current) {
+      lastSelectedPinId.current = selectedPin.id;
       const position = decodePostGISPoint(selectedPin.location || selectedPin.geography);
       if (position && !(position.lng === 0 && position.lat === 0)) {
         map.flyTo([position.lat, position.lng], 15, { duration: 1.5 });
       }
-    } else if (polylinePoints && polylinePoints.length > 0) {
-      const bounds = L.latLngBounds(polylinePoints);
-      map.fitBounds(bounds, { padding: [50, 50], duration: 1.5 });
+    } else if (!selectedPin && polylinePoints && polylinePoints.length > 0) {
+      const polylineKey = JSON.stringify(polylinePoints.slice(0, 10)) + polylinePoints.length;
+      if (polylineKey !== lastPolylineKey.current) {
+        lastPolylineKey.current = polylineKey;
+        const bounds = L.latLngBounds(polylinePoints);
+        map.fitBounds(bounds, { padding: [50, 50], duration: 1.5 });
+      }
+    }
+    
+    if (!selectedPin) {
+      lastSelectedPinId.current = null;
     }
   }, [selectedPin, polylinePoints, map]);
 
@@ -123,7 +165,8 @@ export default function LeafletMap({
   onAddStop,
   onRemoveStop,
   itineraryLegs = [],
-  showItinerary = true
+  showItinerary = true,
+  onBoundsChange
 }: { 
   pins: any[], 
   selectedPin?: any | null,
@@ -131,10 +174,13 @@ export default function LeafletMap({
   onAddStop?: (pinId: string) => void,
   onRemoveStop?: (pinId: string) => void,
   itineraryLegs?: any[],
-  showItinerary?: boolean
+  showItinerary?: boolean,
+  onBoundsChange?: (bounds: { ne: [number, number], sw: [number, number] }) => void
 }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const allPolylinePoints = showItinerary ? itineraryLegs.flatMap(leg => decodePolyline(leg.polyline)) : [];
+  const allPolylinePoints = useMemo(() => 
+    showItinerary ? itineraryLegs.flatMap(leg => decodePolyline(leg.polyline)) : []
+  , [showItinerary, itineraryLegs]);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -155,7 +201,11 @@ export default function LeafletMap({
       className="h-full w-full bg-background"
       zoomControl={false}
     >
-      <MapController selectedPin={selectedPin} polylinePoints={allPolylinePoints} />
+      <MapController 
+        selectedPin={selectedPin} 
+        polylinePoints={allPolylinePoints} 
+        onBoundsChange={onBoundsChange}
+      />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url={isDarkMode 

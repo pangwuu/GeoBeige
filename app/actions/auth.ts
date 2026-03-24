@@ -58,19 +58,6 @@ export async function signUpWithPassword(formData: FormData) {
   return { success: true, message: "Check your email to confirm your account." };
 }
 
-export async function signOut() {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    console.error("Sign Out Error:", error.message);
-    return { error: error.message };
-  }
-
-  revalidatePath("/");
-  return { success: true };
-}
-
 export async function getUser() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

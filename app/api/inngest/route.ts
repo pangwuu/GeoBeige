@@ -7,5 +7,4 @@ export const { GET, POST, PUT } = serve({
   functions: [
     processVideoWorkflow,
   ],
-  isDev: process.env.NODE_ENV !== "production",
 });

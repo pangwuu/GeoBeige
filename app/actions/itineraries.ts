@@ -237,3 +237,66 @@ export async function updateItinerary(id: string, updates: { title?: string; des
   revalidatePath("/");
   return { success: true };
 }
+
+export async function optimiseRoute(stopPinIds: string[]) {
+  if (stopPinIds.length < 2) return { success: true, optimizedIds: stopPinIds };
+  if (stopPinIds.length > 6) return { error: "Too many stops to optimize." };
+
+  // Fetch pin coordinates
+  const { data: pins, error } = await supabaseAdmin
+    .from('pins')
+    .select('id, location')
+    .in('id', stopPinIds);
+
+  if (error || !pins) return { error: "Failed to fetch pin locations." };
+
+  const coordsMap = new Map();
+  pins.forEach(p => {
+    const c = decodePostGISPoint(p.location);
+    if (c) coordsMap.set(p.id, c);
+  });
+
+  // Simple Haversine distance for optimization
+  const getDistance = (p1: any, p2: any) => {
+    const R = 6371;
+    const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+    const dLon = (p2.lng - p1.lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  // Generate all permutations
+  const getPermutations = (arr: any[]): any[][] => {
+    if (arr.length <= 1) return [arr];
+    const perms = [];
+    for (let i = 0; i < arr.length; i++) {
+      const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+      const innerPerms = getPermutations(rest);
+      for (const p of innerPerms) {
+        perms.push([arr[i], ...p]);
+      }
+    }
+    return perms;
+  };
+
+  const permutations = getPermutations(stopPinIds);
+  let bestOrder = stopPinIds;
+  let minDistance = Infinity;
+
+  permutations.forEach(order => {
+    let totalDist = 0;
+    for (let i = 0; i < order.length - 1; i++) {
+      const c1 = coordsMap.get(order[i]);
+      const c2 = coordsMap.get(order[i + 1]);
+      if (c1 && c2) totalDist += getDistance(c1, c2);
+    }
+    if (totalDist < minDistance) {
+      minDistance = totalDist;
+      bestOrder = order;
+    }
+  });
+
+  return { success: true, optimizedIds: bestOrder };
+}

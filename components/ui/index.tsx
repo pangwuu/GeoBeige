@@ -109,12 +109,13 @@ export const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInp
 /**
  * Badge Component
  */
-export const Badge = ({ children, status = 'default', className = "" }: { children: React.ReactNode, status?: 'default' | 'success' | 'processing' | 'accent', className?: string }) => {
+export const Badge = ({ children, status = 'default', className = "" }: { children: React.ReactNode, status?: 'default' | 'success' | 'processing' | 'accent' | 'warning', className?: string }) => {
   const styles = {
     default: 'bg-surface text-muted border-surface-border',
     success: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     processing: 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse-slow',
-    accent: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+    accent: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    warning: 'bg-red-500/10 text-red-500 border-red-500/20'
   };
   return (
     <span className={cn(

@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import UnifiedSearchBar from "@/components/forms/UnifiedSearchBar";
 import { GlassCard, Badge, cn, Input } from "@/components/ui";
-import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal } from "lucide-react";
+import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deletePin, updatePin } from "@/app/actions/pins";
+import { searchPlaces } from "@/app/actions/manualPins";
 import ItineraryDrawer from "@/components/map/ItineraryDrawer";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import AuthModal from "@/components/auth/AuthModal";
-import { getUser, signOut } from "@/app/actions/auth";
+import { getUser } from "@/app/actions/auth";
 import { User } from "@supabase/supabase-js";
 
 
@@ -31,6 +32,8 @@ const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'activity' | 'search' | 'itinerary'>('activity');
   const [pins, setPins] = useState<any[]>([]);
+  const [isLoadingPins, setIsLoadingPins] = useState(false);
+  const [mapBounds, setMapBounds] = useState<{ ne: [number, number], sw: [number, number] } | null>(null);
   const [pinSearch, setPinSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'Food' | 'Drinks' | 'Activity' | 'Other'>('all');
   const [selectedPin, setSelectedPin] = useState<any | null>(null);
@@ -60,19 +63,26 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Initial fetch
     const fetchPins = async () => {
-      const { data, error } = await supabase
+      setIsLoadingPins(true);
+      
+      let query = supabase
         .from("pins")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (mapBounds && !selectedPin) {
+        // PostGIS filter: location && BOX(sw_lng sw_lat, ne_lng ne_lat)
+        query = query.filter('location', 'contained_in', `BOX(${mapBounds.sw[1]} ${mapBounds.sw[0]}, ${mapBounds.ne[1]} ${mapBounds.ne[0]})`);
+      }
       
+      const { data, error } = await query;
       if (data) setPins(data);
+      setIsLoadingPins(false);
     };
 
     fetchPins();
 
-    // Real-time subscription
     const channel = supabase
       .channel("realtime-pins")
       .on(
@@ -95,6 +105,17 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [mapBounds, selectedPin]);
+
+  const handleBoundsChange = useCallback((bounds: { ne: [number, number], sw: [number, number] }) => {
+    setMapBounds(prev => {
+      if (!prev) return bounds;
+      if (prev.ne[0] === bounds.ne[0] && prev.ne[1] === bounds.ne[1] &&
+          prev.sw[0] === bounds.sw[0] && prev.sw[1] === bounds.sw[1]) {
+        return prev;
+      }
+      return bounds;
+    });
   }, []);
 
   const filteredPins = pins.filter(pin => {
@@ -112,13 +133,24 @@ export default function Home() {
     }
   };
 
+  const MAX_STOPS = 5;
+
   const handleAddStop = (pinId: string) => {
     setActiveItineraryStops(prev => {
       if (prev.includes(pinId)) return prev;
+      if (prev.length >= MAX_STOPS) {
+        alert(`You can only add up to ${MAX_STOPS} stops to your itinerary.`);
+        return prev;
+      }
       return [...prev, pinId];
     });
     setActiveTab('itinerary');
     setIsSidebarOpen(true);
+  };
+
+  const handleReorderStops = (newOrder: string[]) => {
+    setActiveItineraryStops(newOrder);
+    setItineraryLegs([]); // Reset legs when order changes to force recalculation
   };
 
   const handleRemoveStop = (pinId: string) => {
@@ -133,7 +165,6 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    // onAuthStateChange will fire and setUser(null) automatically
   };  
 
   return (
@@ -148,19 +179,20 @@ export default function Home() {
           onRemoveStop={handleRemoveStop}
           itineraryLegs={itineraryLegs}
           showItinerary={activeTab === 'itinerary'}
+          onBoundsChange={handleBoundsChange}
         />
       </div>
 
-      {/* Floating Command Centre (Input) - Centred and responsive width */}
+      {/* Floating Command Centre (Input) */}
       <div className="fixed top-4 lg:top-6 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-lg px-4 sm:px-6">
         <UnifiedSearchBar />
       </div>
 
-      {/* Mobile Activity Toggle (Floating bottom) */}
+      {/* Mobile Activity Toggle */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[900] lg:hidden">
         <button 
           onClick={() => setIsSidebarOpen(true)}
-          className="h-12 px-6 bg-surface border border-surface-border backdrop-blur-xl rounded-full text-foreground font-bold text-sm flex items-center gap-2 shadow-2xl mobile-drawer-shadow transition-transform active:scale-95"
+          className="h-12 px-6 bg-surface border border-surface-border backdrop-blur-xl rounded-full text-foreground font-bold text-sm flex items-center gap-2 shadow-2xl transition-transform active:scale-95"
         >
           <History className="w-4 h-4 text-primary" />
           <span>View Activity</span>
@@ -181,18 +213,16 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Glass Sidebar (Responsive Drawer on Mobile) */}
+      {/* Glass Sidebar */}
       <aside className={cn(
-  "fixed z-[1200] lg:z-[900] transition-all duration-500 ease-in-out flex flex-col gap-4",
-  "lg:top-6 lg:left-6 lg:bottom-6 lg:w-[400px] lg:pointer-events-none",
-  // Only apply dynamic mobile classes after mount
-  !mounted 
-    ? "bottom-[-100%] left-0 right-0 h-[85vh] w-full p-4 pointer-events-none"
-    : isSidebarOpen 
-      ? "bottom-0 left-0 right-0 h-[85vh] w-full p-4 pointer-events-auto" 
-      : "bottom-[-100%] left-0 right-0 h-[85vh] w-full p-4 pointer-events-none lg:pointer-events-none"
-)}>
-        {/* Brand Header (Desktop Only) */}
+        "fixed z-[1200] lg:z-[900] transition-all duration-500 ease-in-out flex flex-col gap-4",
+        "lg:top-6 lg:left-6 lg:bottom-6 lg:w-[400px] lg:pointer-events-none",
+        !mounted 
+          ? "bottom-[-100%] left-0 right-0 h-[85vh] w-full p-4 pointer-events-none"
+          : isSidebarOpen 
+            ? "bottom-0 left-0 right-0 h-[85vh] w-full p-4 pointer-events-auto" 
+            : "bottom-[-100%] left-0 right-0 h-[85vh] w-full p-4 pointer-events-none lg:pointer-events-none"
+      )}>
         <GlassCard className="hidden lg:block p-5 pointer-events-auto">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
@@ -205,9 +235,7 @@ export default function Home() {
           </div>
         </GlassCard>
 
-        {/* Navigation / Activity */}
         <GlassCard className="flex-1 p-5 flex flex-col gap-6 pointer-events-auto overflow-hidden relative">
-          {/* Mobile Handle / Close */}
           <div className="lg:hidden flex items-center justify-between mb-2">
             <div className="w-10 h-1 bg-surface-border rounded-full absolute top-3 left-1/2 -translate-x-1/2" />
             <h2 className="text-lg font-black text-foreground mt-2">
@@ -285,7 +313,14 @@ export default function Home() {
 
                 <h3 className="text-[11px] font-bold uppercase text-muted tracking-widest px-1">Recent Activity</h3>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-                  {filteredPins.length > 0 ? (
+                  {isLoadingPins ? (
+                    [1, 2, 3].map(i => (
+                      <div key={i} className="p-3 rounded-xl border border-surface-border bg-surface/20 animate-pulse space-y-2">
+                        <div className="h-4 bg-surface-border rounded w-1/2" />
+                        <div className="h-3 bg-surface-border rounded w-3/4" />
+                      </div>
+                    ))
+                  ) : filteredPins.length > 0 ? (
                     filteredPins.map((pin) => (
                       <ActivityCard 
                         key={pin.id}
@@ -310,6 +345,7 @@ export default function Home() {
               <ItineraryDrawer 
                 pins={pins}
                 activeStops={activeItineraryStops}
+                onReorderStops={handleReorderStops}
                 onRemoveStop={handleRemoveStop}
                 onClear={handleClearItinerary}
                 onAddStop={handleAddStop}
@@ -329,13 +365,9 @@ export default function Home() {
         </GlassCard>
       </aside>
 
-      {/* Floating Action Buttons (Desktop Only) */}
+      {/* Floating Action Buttons */}
       <div className="hidden lg:flex fixed top-6 right-6 z-[900] gap-3">
         <ThemeToggle className="h-11 w-11" />
-        {/* <button className="h-11 px-4 bg-surface border border-surface-border backdrop-blur-md rounded-xl text-muted font-bold text-xs hover:bg-surface-hover hover:text-foreground transition-all flex items-center gap-2 shadow-xl">
-          <Share2 className="w-4 h-4" />
-          <span>Share Map</span>
-        </button> */}
         {user ? (
           <div className="flex items-center gap-3 bg-surface border border-surface-border backdrop-blur-md rounded-xl px-1.5 shadow-xl">
             <span className="hidden sm:inline text-[10px] font-black text-muted uppercase tracking-widest pl-2">
@@ -371,8 +403,34 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
   const [editForm, setEditForm] = useState({
     venue_name: pin.venue_name || "",
     summary: pin.summary || "",
-    category: pin.category || "Activity"
+    category: pin.category || "Activity",
+    city: pin.city || "",
+    lat: 0,
+    lng: 0
   });
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationResults, setLocationResults] = useState<any[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+
+  const handleLocationSearch = async () => {
+    if (!locationSearch.trim()) return;
+    setIsSearchingLocation(true);
+    const results = await searchPlaces(locationSearch);
+    setLocationResults(results);
+    setIsSearchingLocation(false);
+  };
+
+  const selectLocation = (result: any) => {
+    setEditForm({
+      ...editForm,
+      venue_name: result.text,
+      city: result.place_name.split(',')[0].trim(),
+      lat: result.center[1],
+      lng: result.center[0]
+    });
+    setLocationResults([]);
+    setLocationSearch("");
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -392,19 +450,36 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
     setEditForm({
       venue_name: pin.venue_name || "",
       summary: pin.summary || "",
-      category: pin.category || "Activity"
+      category: pin.category || "Activity",
+      city: pin.city || "",
+      lat: 0,
+      lng: 0
     });
   };
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsEditing(false);
+    setLocationResults([]);
   };
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsUpdating(true);
-    const result = await updatePin(pin.id, editForm);
+    
+    const updates: any = {
+      venue_name: editForm.venue_name,
+      summary: editForm.summary,
+      category: editForm.category,
+      city: editForm.city,
+      status: 'completed'
+    };
+
+    if (editForm.lat !== 0 && editForm.lng !== 0) {
+      updates.location = `POINT(${editForm.lng} ${editForm.lat})`;
+    }
+
+    const result = await updatePin(pin.id, updates);
     if (result.success) {
       setIsEditing(false);
     } else {
@@ -415,7 +490,42 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
 
   if (isEditing) {
     return (
-      <div className="p-3 rounded-xl border border-primary/30 bg-background shadow-xl space-y-3">
+      <div className="p-3 rounded-xl border border-primary/30 bg-background shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-muted uppercase">Correct Location</label>
+          <div className="flex gap-2">
+            <Input 
+              value={locationSearch}
+              onChange={(e) => setLocationSearch(e.target.value)}
+              placeholder="Search Google Places..."
+              className="h-8 py-1 text-xs"
+              onKeyDown={e => e.key === 'Enter' && handleLocationSearch()}
+            />
+            <button 
+              onClick={handleLocationSearch}
+              disabled={isSearchingLocation}
+              className="px-2 bg-surface border border-surface-border rounded-lg text-muted hover:text-foreground transition-all"
+            >
+              {isSearchingLocation ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+          
+          {locationResults.length > 0 && (
+            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto custom-scrollbar border border-surface-border rounded-lg p-1 bg-surface/50">
+              {locationResults.map(res => (
+                <button 
+                  key={res.id}
+                  onClick={() => selectLocation(res)}
+                  className="w-full text-left p-1.5 hover:bg-primary/10 rounded text-[10px] transition-colors"
+                >
+                  <p className="font-bold text-foreground">{res.text}</p>
+                  <p className="text-muted truncate text-[9px]">{res.place_name}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="space-y-1">
           <label className="text-[10px] font-bold text-muted uppercase">Venue Name</label>
           <Input 
@@ -424,7 +534,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
             className="h-8 py-1 text-xs"
           />
         </div>
-        
+
         <div className="space-y-1">
           <label className="text-[10px] font-bold text-muted uppercase">Category</label>
           <div className="flex gap-2">
@@ -482,18 +592,11 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
         </div>
 
         <div className="flex gap-2 pt-1">
-          <button 
-            onClick={handleCancel}
-            className="flex-1 py-1.5 rounded-lg bg-surface text-muted text-[10px] font-bold hover:bg-surface-hover hover:text-foreground transition-all flex items-center justify-center gap-1.5"
-          >
+          <button onClick={handleCancel} className="flex-1 py-1.5 rounded-lg bg-surface text-muted text-[10px] font-bold hover:bg-surface-hover hover:text-foreground transition-all flex items-center justify-center gap-1.5">
             <X className="w-3 h-3" />
             Cancel
           </button>
-          <button 
-            onClick={handleSave}
-            disabled={isUpdating}
-            className="flex-1 py-1.5 rounded-lg bg-primary text-white text-[10px] font-bold hover:bg-primary-hover transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-          >
+          <button onClick={handleSave} disabled={isUpdating} className="flex-1 py-1.5 rounded-lg bg-primary text-white text-[10px] font-bold hover:bg-primary-hover transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
             {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             Save
           </button>
@@ -503,8 +606,8 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
   }
 
   const title = pin.venue_name || "Analysing...";
-  const status = pin.status === 'completed' ? 'success' : 'processing';
-  const description = pin.summary || "Extracting details from video...";
+  const status = pin.status === 'completed' ? 'success' : (pin.status === 'needs_review' ? 'warning' : 'processing');
+  const description = pin.summary || (pin.status === 'needs_review' ? "AI found the vibe, but couldn't pin the exact spot. Click edit to search manually." : "Extracting details from video...");
   const isFood = pin.category === 'Food';
   const isDrinks = pin.category === 'Drinks';
   const isOther = pin.category === 'Other';
@@ -520,10 +623,18 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
       )}
     >
       <div className="flex justify-between items-start mb-1.5">
-        <span className={cn(
-          "font-bold text-sm transition-colors pr-2", 
-          active ? "text-foreground" : "text-foreground group-hover:text-primary transition-colors"
-        )}>{title}</span>
+        <div className="flex flex-col min-w-0">
+          <span className={cn(
+            "font-bold text-sm transition-colors pr-2 truncate", 
+            active ? "text-foreground" : "text-foreground group-hover:text-primary transition-colors"
+          )}>{title}</span>
+          {pin.status === 'needs_review' && (
+            <div className="flex items-center gap-1 text-[9px] font-black text-amber-500 uppercase tracking-wider">
+              <AlertCircle className="w-2.5 h-2.5" />
+              <span>Location Unresolved</span>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
           {status === 'success' && onAddStop && (
@@ -550,23 +661,14 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
               isOther && "bg-blue-500/10 text-blue-500 border-blue-500/20"
             )}
           >
-            {status === 'success' ? pin.category : 'AI'}
+            {status === 'success' ? pin.category : (status === 'warning' ? 'Needs Fix' : 'AI')}
           </Badge>
           
           <div className="flex items-center">
-            <button
-              onClick={handleEdit}
-              className="p-1 hover:bg-primary/20 rounded-lg text-muted hover:text-primary transition-all"
-              title="Edit Pin"
-            >
+            <button onClick={handleEdit} className="p-1 hover:bg-primary/20 rounded-lg text-muted hover:text-primary transition-all" title="Edit Pin">
               <Edit3 className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="p-1 hover:bg-red-500/20 rounded-lg text-muted hover:text-red-400 transition-all disabled:opacity-50"
-              title="Delete Pin"
-            >
+            <button onClick={handleDelete} disabled={isDeleting} className="p-1 hover:bg-red-500/20 rounded-lg text-muted hover:text-red-400 transition-all disabled:opacity-50" title="Delete Pin">
               {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             </button>
           </div>

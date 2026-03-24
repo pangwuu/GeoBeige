@@ -1,5 +1,5 @@
 import { inngest } from "./client";
-import { processVideoContent, generateTripMetadata } from "../ai/gemini";
+import { processVideoContent } from "../ai/gemini";
 import { geocode } from "../geocoding";
 import { createClient } from "@supabase/supabase-js";
 
@@ -112,7 +112,12 @@ export const processVideoWorkflow = inngest.createFunction(
 
       // If no cache hit, call Google
       // @ts-ignore
-      return await geocode(extraction.venueName, extraction.locationContext);
+      try {
+        return await geocode(extraction.venueName, extraction.locationContext);
+      } catch (err) {
+        console.warn("DEBUG: Geocoding failed for:", extraction.venueName, "Error:", err);
+        return { lng: 0, lat: 0 };
+      }
     });
 
     console.log("DEBUG: Geocoding result:", coords);
@@ -121,6 +126,8 @@ export const processVideoWorkflow = inngest.createFunction(
     await step.run("save-to-db", async () => {
       console.log("DEBUG: Starting save-to-db step for pinId:", pinId);
       
+      const isGeocoded = coords.lng !== 0 || coords.lat !== 0;
+
       const pinData = {
         // @ts-ignore
         venue_name: extraction.venueName,
@@ -133,7 +140,7 @@ export const processVideoWorkflow = inngest.createFunction(
         source_url: url,
         // @ts-ignore
         location: `POINT(${coords.lng} ${coords.lat})`,
-        status: 'completed'
+        status: isGeocoded ? 'completed' : 'needs_review'
       };
 
       let result;
