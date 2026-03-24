@@ -34,7 +34,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'activity' | 'search' | 'itinerary'>('activity');
   const [pins, setPins] = useState<any[]>([]);
   const [isLoadingPins, setIsLoadingPins] = useState(false);
-  const [mapBounds, setMapBounds] = useState<{ ne: [number, number], sw: [number, number] } | null>(null);
+  // const [mapBounds, setMapBounds] = useState<{ ne: [number, number], sw: [number, number] } | null>(null);
   const [pinSearch, setPinSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'Food' | 'Drinks' | 'Activity' | 'Other'>('all');
   const [selectedPin, setSelectedPin] = useState<any | null>(null);
@@ -45,8 +45,16 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [globalMessage, setGlobalMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (globalMessage) {
+      const timer = setTimeout(() => setGlobalMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [globalMessage]);
   
   const refreshUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -81,61 +89,38 @@ useEffect(() => {
     }
   }, [isAuthModalOpen, mounted, refreshUser]);
 
+  // Fetch pins ONCE
   useEffect(() => {
     const fetchPins = async () => {
       setIsLoadingPins(true);
-      
-      let query = supabase
+      const { data } = await supabase
         .from("pins")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (mapBounds && !selectedPin) {
-        // PostGIS filter: location && BOX(sw_lng sw_lat, ne_lng ne_lat)
-        query = query.filter('location', 'contained_in', `BOX(${mapBounds.sw[1]} ${mapBounds.sw[0]}, ${mapBounds.ne[1]} ${mapBounds.ne[0]})`);
-      }
-      
-      const { data, error } = await query;
       if (data) setPins(data);
       setIsLoadingPins(false);
     };
 
     fetchPins();
+  }, []); // runs once on mount, realtime handles updates after that
+  // Realtime subscription — runs once, never torn down
 
+  useEffect(() => {
     const channel = supabase
       .channel("realtime-pins")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pins" },
+      .on("postgres_changes", { event: "*", schema: "public", table: "pins" },
         (payload: RealtimePostgresChangesPayload<any>) => {
-          if (payload.eventType === "INSERT") {
-            setPins((prev) => [payload.new, ...prev]);
-          } else if (payload.eventType === "UPDATE") {
-            setPins((prev) =>
-              prev.map((p) => (p.id === payload.new.id ? payload.new : p))
-            );
-          } else if (payload.eventType === "DELETE") {
-            setPins((prev) => prev.filter((p) => p.id !== payload.old.id));
-          }
+          if (payload.eventType === "INSERT") setPins(prev => [payload.new, ...prev]);
+          else if (payload.eventType === "UPDATE") setPins(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+          else if (payload.eventType === "DELETE") setPins(prev => prev.filter(p => p.id !== payload.old.id));
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [mapBounds, selectedPin]);
+    return () => { supabase.removeChannel(channel); };
+  }, []); // empty deps — subscribe once for the lifetime of the page
 
-  const handleBoundsChange = useCallback((bounds: { ne: [number, number], sw: [number, number] }) => {
-    setMapBounds(prev => {
-      if (!prev) return bounds;
-      if (prev.ne[0] === bounds.ne[0] && prev.ne[1] === bounds.ne[1] &&
-          prev.sw[0] === bounds.sw[0] && prev.sw[1] === bounds.sw[1]) {
-        return prev;
-      }
-      return bounds;
-    });
-  }, []);
 
   const filteredPins = pins.filter(pin => {
     const matchesSearch = pin.venue_name?.toLowerCase().includes(pinSearch.toLowerCase()) || 
@@ -167,7 +152,7 @@ useEffect(() => {
     setActiveItineraryStops(prev => {
       if (prev.includes(pinId)) return prev;
       if (prev.length >= MAX_STOPS) {
-        alert(`You can only add up to ${MAX_STOPS} stops to your itinerary.`);
+        setGlobalMessage({ type: 'error', text: `You can only add up to ${MAX_STOPS} stops.` });
         return prev;
       }
       return [...prev, pinId];
@@ -199,6 +184,23 @@ useEffect(() => {
     router.refresh();
   };  
 
+  const handleDeletePin = async (id: string) => {
+    if (!confirm("Are you sure you want to remove this pin?")) return;
+    const result = await deletePin(id);
+    if (result.error) {
+      setGlobalMessage({ type: 'error', text: result.error });
+    } else {
+      setGlobalMessage({ type: 'success', text: "Pin removed from your map." });
+    }
+  };
+
+  const handleEditPin = (pin: any) => {
+    setSelectedPin(pin);
+    setActiveTab('activity');
+    setIsSidebarOpen(true);
+    // Note: The ActivityCard will detect if the selectedPin matches and we can scroll to it
+  };
+
   return (
     <div className="relative h-screen w-full bg-background overflow-hidden font-sans selection:bg-primary/30 flex flex-col lg:block">
       {/* Full Background Map */}
@@ -206,12 +208,14 @@ useEffect(() => {
         <LeafletMap 
           pins={pins} 
           selectedPin={selectedPin} 
+          user={user}
           activeItineraryStops={activeItineraryStops}
           onAddStop={handleAddStop}
           onRemoveStop={handleRemoveStop}
+          onEditPin={handleEditPin}
+          onDeletePin={handleDeletePin}
           itineraryLegs={itineraryLegs}
           showItinerary={activeTab === 'itinerary'}
-          onBoundsChange={handleBoundsChange}
         />
       </div>
 
@@ -461,6 +465,34 @@ useEffect(() => {
       </div>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+
+      {/* Global Toast Message */}
+      <AnimatePresence>
+        {globalMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-24 lg:bottom-10 left-1/2 -translate-x-1/2 z-[2000] px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border flex items-center gap-3 min-w-[280px]"
+            style={{ 
+              backgroundColor: globalMessage.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+              borderColor: globalMessage.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'
+            }}
+          >
+            {globalMessage.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            )}
+            <span className={cn(
+              "text-xs font-black uppercase tracking-widest",
+              globalMessage.type === 'error' ? "text-red-500" : "text-emerald-500"
+            )}>
+              {globalMessage.text}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

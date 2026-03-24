@@ -95,11 +95,29 @@
   border: 1px solid var(--card-border);
   @apply shadow-2xl p-0 overflow-hidden rounded-xl;
   backdrop-filter: blur(8px);
+  padding: 0;
+  max-width: 320px;
+  min-width: 280px;
+  width: 320px;
 }
 
 .custom-popup .leaflet-popup-content {
   @apply m-0 p-0;
-  width: auto !important;
+  margin: 0;
+  width: 100% !important;
+}
+
+@media (max-width: 640px) {
+  .custom-popup .leaflet-popup-content-wrapper {
+    max-width: 240px;
+    min-width: 200px;
+    width: 240px;
+  }
+
+  .custom-popup .leaflet-popup-content > div > .flex {
+    padding: 10px;
+    gap: 10px;
+  }
 }
 
 .custom-popup .leaflet-popup-tip {

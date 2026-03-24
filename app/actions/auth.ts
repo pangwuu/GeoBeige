@@ -31,6 +31,12 @@ export async function signInWithPassword(formData: FormData) {
   });
 
   if (error) {
+    if (error.message === "Invalid login credentials") {
+      return { error: "Double check your email or password and try again." };
+    }
+    if (error.message.includes("Email not confirmed")) {
+      return { error: "Please verify your email before signing in." };
+    }
     return { error: error.message };
   }
 
@@ -52,6 +58,9 @@ export async function signUpWithPassword(formData: FormData) {
   });
 
   if (error) {
+    if (error.message.includes("User already registered")) {
+      return { error: "Looks like you already have an account! Try logging in instead." };
+    }
     return { error: error.message };
   }
 

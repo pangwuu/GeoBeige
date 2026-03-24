@@ -70,7 +70,7 @@ return {
 
 
     // 3. Geocoding via Google (with caching)
-    const coords = await step.run("geocoding", async () => {
+    const geocodingResult = await step.run("geocoding", async () => {
       
       // Check if we've already geocoded this exact venue/suburb combo
       const { data: existingVenue } = await supabaseAdmin
@@ -87,7 +87,7 @@ return {
         // Handle string format
         if (typeof existingVenue.location === 'string' && existingVenue.location.startsWith('POINT')) {
           const match = existingVenue.location.match(/POINT\((.+) (.+)\)/);
-          if (match) return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+          if (match) return { coords: { lng: parseFloat(match[1]), lat: parseFloat(match[2]) } };
         }
         
         // Handle WKB (hex string) format
@@ -101,16 +101,19 @@ return {
           const view = new DataView(bytes.buffer);
           const lng = view.getFloat64(offset / 2, true);
           const lat = view.getFloat64((offset / 2) + 8, true);
-          return { lng, lat };
+          return { coords: { lng, lat } };
         }
       }
 
       // If no cache hit, call Google
-      // @ts-ignore
       try {
-        return await geocode(extraction.venueName, extraction.locationContext);
-      } catch (err) {
-        return { lng: 0, lat: 0 };
+        const coords = await geocode(extraction.venueName, extraction.locationContext);
+        return { coords };
+      } catch (err: any) {
+        return { 
+          coords: { lng: 0, lat: 0 }, 
+          error: err.message || "Address not found" 
+        };
       }
     });
 
@@ -118,6 +121,7 @@ return {
     // 4. Update existing pin or save as new
     await step.run("save-to-db", async () => {
       
+      const coords = geocodingResult.coords;
       const isGeocoded = coords.lng !== 0 || coords.lat !== 0;
 
       // Ensure category matches CHECK constraint (Food, Drinks, Activity, Other)
@@ -132,7 +136,6 @@ return {
         venue_name: extraction.venueName,
         // @ts-ignore
         city: extraction.locationContext, // Suburb + City info
-        // @ts-ignore
         summary: extraction.summary,
         category: validatedCategory,
         source_url: url,
@@ -140,6 +143,11 @@ return {
         location: `POINT(${coords.lng} ${coords.lat})`,
         status: isGeocoded ? 'completed' : 'failed'
       };
+
+      // If geocoding failed, add a helpful hint to the summary
+      if (!isGeocoded) {
+        pinData.summary = `📍 Location Resolution Failed: We found the vibe but couldn't pin "${extraction.venueName}" exactly. \n\nClick Edit to search manually!\n\n---\n${extraction.summary}`;
+      }
 
       let result;
       if (pinId) {

@@ -57,7 +57,9 @@ export default function ItineraryDrawer({
 }: ItineraryDrawerProps) {
   const [mode, setMode] = useState<'manual' | 'ai' | 'list'>('manual');
   const [aiPrompt, setAiPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isOptimising, setIsOptimising] = useState(false);
+  const [isGeneratingRoute, setIsGeneratingRoute] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [transportMode, setTransportMode] = useState<TransportMode>('transit');
   const [itineraryData, setItineraryData] = useState<{
@@ -69,8 +71,16 @@ export default function ItineraryDrawer({
   const [savedItineraries, setSavedItineraries] = useState<any[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [listSearch, setListSearch] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedPins = activeStops.map(id => pins.find(p => p.id === id)).filter(Boolean);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   useEffect(() => {
     if (mode === 'list') {
@@ -105,7 +115,8 @@ export default function ItineraryDrawer({
 
   const handleAiGenerate = async () => {
     if (!aiPrompt) return;
-    setIsGenerating(true);
+    setIsAiGenerating(true);
+    setErrorMessage(null);
     const result = await getAISuggestedItinerary(aiPrompt);
     if (result.success && result.suggestion) {
       handleClear();
@@ -120,26 +131,28 @@ export default function ItineraryDrawer({
       });
       setMode('manual');
     } else {
-      alert(result.error || "Failed to generate AI plan");
+      setErrorMessage(result.error || "Failed to generate AI plan");
     }
-    setIsGenerating(false);
+    setIsAiGenerating(false);
   };
 
   const handleOptimise = async () => {
     if (activeStops.length < 2) return;
-    setIsGenerating(true);
+    setIsOptimising(true);
+    setErrorMessage(null);
     const result = await optimiseRoute(activeStops);
     if (result.success && result.optimizedIds) {
       onReorderStops(result.optimizedIds);
     } else {
-      alert(result.error || "Failed to optimise route");
+      setErrorMessage(result.error || "Failed to optimise route");
     }
-    setIsGenerating(false);
+    setIsOptimising(false);
   };
 
   const handleGenerateRoute = async () => {
     if (activeStops.length < 2) return;
-    setIsGenerating(true);
+    setIsGeneratingRoute(true);
+    setErrorMessage(null);
     const result = await generateRouteData(activeStops, transportMode);
     if (result.success && result.legs) {
       onRoutesGenerated(result.legs);
@@ -149,14 +162,15 @@ export default function ItineraryDrawer({
         legs: result.legs
       }));
     } else {
-      alert(result.error || "Failed to generate route");
+      setErrorMessage(result.error || "Failed to generate route");
     }
-    setIsGenerating(false);
+    setIsGeneratingRoute(false);
   };
 
   const handleSave = async () => {
     if (!itineraryData || activeStops.length < 2) return;
     setIsSaving(true);
+    setErrorMessage(null);
     
     const result = await saveItinerary({
       title: itineraryData.title,
@@ -177,13 +191,35 @@ export default function ItineraryDrawer({
       onClear();
       setItineraryData(null);
     } else {
-      alert(result.error || "Failed to save itinerary");
+      setErrorMessage(result.error || "Failed to save itinerary");
     }
     setIsSaving(false);
   };
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      <AnimatePresence>
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-3 relative">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] font-medium text-red-500 flex-1 pr-4">{errorMessage}</p>
+              <button 
+                onClick={() => setErrorMessage(null)}
+                className="absolute top-2 right-2 text-red-500/50 hover:text-red-500"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-center gap-2">
         <div className="flex-1 flex bg-background/50 p-1 rounded-xl border border-surface-border">
           {(['manual', 'ai', 'list'] as const).map((m) => (
@@ -301,10 +337,10 @@ export default function ItineraryDrawer({
               </div>
               <button 
                 onClick={handleAiGenerate}
-                disabled={isGenerating || !aiPrompt}
+                disabled={isAiGenerating || !aiPrompt}
                 className="w-full py-3 bg-primary text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {isAiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 Plan with AI
               </button>
             </motion.div>
@@ -409,10 +445,10 @@ export default function ItineraryDrawer({
                   {!itineraryData?.legs.length && (
                     <button 
                       onClick={handleOptimise}
-                      disabled={isGenerating}
+                      disabled={isOptimising}
                       className="w-full py-2 bg-surface border border-surface-border text-foreground rounded-xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-surface-hover transition-all disabled:opacity-50"
                     >
-                      {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-primary" />}
+                      {isOptimising ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-primary" />}
                       Optimise Order
                     </button>
                   )}
@@ -487,10 +523,10 @@ export default function ItineraryDrawer({
                   ) : (
                     <button 
                       onClick={handleGenerateRoute}
-                      disabled={isGenerating}
+                      disabled={isGeneratingRoute}
                       className="w-full py-4 bg-primary text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                     >
-                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+                      {isGeneratingRoute ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
                       Generate Route & Timings
                     </button>
                   )}

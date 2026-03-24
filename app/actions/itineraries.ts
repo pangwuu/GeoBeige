@@ -107,7 +107,7 @@ export async function saveItinerary(itinerary: {
       .select()
       .single();
 
-    if (itinError) throw itinError;
+    if (itinError) throw new Error("Could not create the itinerary record.");
 
     // 2. Create Stops
     const stopInserts = itinerary.stops.map((stop, index) => ({
@@ -123,7 +123,7 @@ export async function saveItinerary(itinerary: {
       .insert(stopInserts)
       .select();
 
-    if (stopsError) throw stopsError;
+    if (stopsError) throw new Error("Failed to link locations to your itinerary.");
 
     // 3. Create Legs
     const legInserts = itinerary.legs.map((leg) => {
@@ -131,7 +131,6 @@ export async function saveItinerary(itinerary: {
       const toStop = newStops.find(s => s.pin_id === leg.to_pin_id);
       
       // Ensure transport mode is lowercase to match database CHECK constraint
-      // and provide fallback if missing
       const rawMode = (leg.mode || 'transit').toLowerCase();
       const dbMode = rawMode === 'walk' ? 'walking' : 
                      rawMode === 'drive' ? 'driving' :
@@ -152,12 +151,12 @@ export async function saveItinerary(itinerary: {
       .from('itinerary_legs')
       .insert(legInserts);
 
-    if (legsError) throw legsError;
+    if (legsError) throw new Error("Failed to save the route timing between stops.");
 
     revalidatePath("/");
     return { success: true, itineraryId: newItinerary.id };
-  } catch (err) {
-    return { error: "An error occurred while saving your itinerary." };
+  } catch (err: any) {
+    return { error: err.message || "Something went wrong while saving." };
   }
 }
 

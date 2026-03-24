@@ -71,11 +71,14 @@ export async function addManualPin(data: {
     }).select();
 
     if (error) {
-      return { success: false, error: error.message };
+      if (error.code === '23505') {
+        return { success: false, error: `"${data.venue_name}" is already on your map in ${data.city}!` };
+      }
+      return { success: false, error: "We couldn't save this location. Please try again." };
     }
 
     return { success: true };
   } catch (error) {
-    return { success: false, error: "Database insertion failed" };
+    return { success: false, error: "Connection error. Please check your network." };
   }
 }

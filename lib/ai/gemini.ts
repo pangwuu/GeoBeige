@@ -32,7 +32,13 @@ export async function processVideoContent(videoTranscription: string, caption: s
 
   const result = await geminiModel.generateContent(prompt);
   const response = await result.response;
-  return JSON.parse(response.text());
+  const text = response.text();
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("Gemini JSON Parse Error:", text);
+    throw new Error("We encountered an error processing the AI response. Please try again.");
+  }
 }
 
 export async function generateItineraryFromPins(pins: any[], userPrompt: string) {
@@ -70,5 +76,11 @@ export async function generateItineraryFromPins(pins: any[], userPrompt: string)
 
   const result = await geminiModel.generateContent(prompt);
   const response = await result.response;
-  return JSON.parse(response.text());
+  const text = response.text();
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("Gemini JSON Parse Error:", text);
+    throw new Error("We encountered an error processing the AI response. Please try again.");
+  }
 }

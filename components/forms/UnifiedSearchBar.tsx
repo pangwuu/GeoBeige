@@ -52,16 +52,23 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
         const result = await submitVideoUrl(value);
         if (result.success) {
           setStatus('success');
-          setMessage("Video queued for analysis");
+          setMessage(result.message || "Video queued for analysis");
           setInputValue("");
-          setTimeout(() => setStatus('idle'), 3000);
+          setTimeout(() => {
+            setStatus('idle');
+            setMessage("");
+          }, 4000);
         } else {
           setStatus('error');
           setMessage(result.error || "Failed to process link");
+          setTimeout(() => {
+            setStatus('idle');
+            setMessage("");
+          }, 5000);
         }
       } catch (error) {
         setStatus('error');
-        setMessage("Connection error");
+        setMessage("Connection failed. Check your network.");
       } finally {
         setLoading(false);
       }
@@ -75,11 +82,16 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
         const data = await searchPlaces(value);
         setSearchResults(data);
         if (data.length === 0) {
-          setMessage("No places found");
-          setTimeout(() => setMessage(""), 3000);
+          setStatus('error');
+          setMessage("No places found for that search.");
+          setTimeout(() => {
+            setStatus('idle');
+            setMessage("");
+          }, 3000);
         }
       } catch (err) {
-        console.error(err);
+        setStatus('error');
+        setMessage("Place search unavailable.");
       } finally {
         setManualLoading(false);
       }
@@ -89,6 +101,9 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
   async function handleAddManual(place: any, category: string) {
     const actionKey = `${place.id}:${category}`;
     setAddingPinId(actionKey);
+    setStatus('idle');
+    setMessage("");
+
     try {
       const cityParts = place.place_name.split(',');
       const city = cityParts.length > 1 ? cityParts[cityParts.length - 2].trim() : "Unknown";
@@ -103,6 +118,8 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
       });
       
       if (result.success) {
+        setStatus('success');
+        setMessage(`Added "${place.text}"!`);
         setTimeout(() => {
           setAddingPinId(null);
           setSearchResults(prev => prev.filter(r => r.id !== place.id));
@@ -114,10 +131,22 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
           if (searchResults.length <= 1) {
              setInputValue("");
           }
-        }, 1000);
+          setStatus('idle');
+          setMessage("");
+        }, 1500);
+      } else {
+        setAddingPinId(null);
+        setStatus('error');
+        setMessage(result.error || "Could not add place.");
+        setTimeout(() => {
+          setStatus('idle');
+          setMessage("");
+        }, 4000);
       }
     } catch (err) {
       setAddingPinId(null);
+      setStatus('error');
+      setMessage("Failed to reach server.");
     }
   }
 
