@@ -13,8 +13,8 @@ import { searchPlaces } from "@/app/actions/manualPins";
 import ItineraryDrawer from "@/components/map/ItineraryDrawer";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import AuthModal from "@/components/auth/AuthModal";
-import { getUser } from "@/app/actions/auth";
-import { User } from "@supabase/supabase-js";
+import { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 
 // Dynamically import the map to avoid SSR issues with Leaflet
@@ -53,18 +53,24 @@ export default function Home() {
     setUser(user);
   }, [supabase]);
 
-  useEffect(() => {
-    setMounted(true);
-    refreshUser();
+useEffect(() => {
+  setMounted(true);
+  refreshUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        router.refresh();
+    // 1. Capture the data object containing the subscription
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, session: Session | null) => {
+        setUser(session?.user || null);
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+          router.refresh();
+        }
       }
-    });
+    );
 
-    return () => subscription.unsubscribe();
+    // 2. The cleanup function now has access to the subscription variable
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [supabase, router, refreshUser]);
 
   // If the modal was just closed, proactively check for a user session
@@ -101,7 +107,7 @@ export default function Home() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "pins" },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           if (payload.eventType === "INSERT") {
             setPins((prev) => [payload.new, ...prev]);
           } else if (payload.eventType === "UPDATE") {
