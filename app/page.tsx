@@ -127,10 +127,18 @@ export default function Home() {
   });
 
   const handleSelectPin = (pin: any) => {
-    setSelectedPin(pin);
-    if (window.innerWidth < 1024) {
-      setIsSidebarOpen(false);
+    if (selectedPin?.id === pin.id) {
+      setSelectedPin(null);
+    } else {
+      setSelectedPin(pin);
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      }
     }
+  };
+
+  const handleDeselectPin = () => {
+    setSelectedPin(null);
   };
 
   const MAX_STOPS = 5;
@@ -311,7 +319,18 @@ export default function Home() {
                   </div>
                 </div>
 
-                <h3 className="text-[11px] font-bold uppercase text-muted tracking-widest px-1">Recent Activity</h3>
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-[11px] font-bold uppercase text-muted tracking-widest">Recent Activity</h3>
+                  {selectedPin && (
+                    <button 
+                      onClick={handleDeselectPin}
+                      className="text-[10px] text-primary font-bold hover:underline uppercase tracking-wider flex items-center gap-1"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                   {isLoadingPins ? (
                     [1, 2, 3].map(i => (
@@ -329,6 +348,7 @@ export default function Home() {
                         active={selectedPin?.id === pin.id}
                         onAddStop={handleAddStop}
                         isInItinerary={activeItineraryStops.includes(pin.id)}
+                        onDeselect={handleDeselectPin}
                       />
                     ))
                   ) : (
@@ -396,7 +416,7 @@ export default function Home() {
   );
 }
 
-function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin: any, onClick?: () => void, active?: boolean, onAddStop?: (id: string) => void, isInItinerary?: boolean }) {
+function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDeselect }: { pin: any, onClick?: () => void, active?: boolean, onAddStop?: (id: string) => void, isInItinerary?: boolean, onDeselect?: () => void }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -637,6 +657,19 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary }: { pin:
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {active && onDeselect && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeselect();
+              }}
+              className="p-1 hover:bg-primary/20 rounded-lg text-primary transition-all"
+              title="Deselect"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {status === 'success' && onAddStop && (
             <button
               onClick={(e) => {

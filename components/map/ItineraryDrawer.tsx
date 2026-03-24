@@ -177,22 +177,33 @@ export default function ItineraryDrawer({
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      <div className="flex bg-background/50 p-1 rounded-xl border border-surface-border">
-        {(['manual', 'ai', 'list'] as const).map((m) => (
+      <div className="flex items-center gap-2">
+        <div className="flex-1 flex bg-background/50 p-1 rounded-xl border border-surface-border">
+          {(['manual', 'ai', 'list'] as const).map((m) => (
+            <button 
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
+                mode === m ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
+              )}
+            >
+              {m === 'manual' && <MapPin className="w-3.5 h-3.5" />}
+              {m === 'ai' && <Sparkles className="w-3.5 h-3.5" />}
+              {m === 'list' && <Save className="w-3.5 h-3.5" />}
+              <span className="capitalize">{m}</span>
+            </button>
+          ))}
+        </div>
+        {activeStops.length > 0 && (
           <button 
-            key={m}
-            onClick={() => setMode(m)}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
-              mode === m ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
-            )}
+            onClick={onClear}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-all shadow-sm"
+            title="Clear Itinerary"
           >
-            {m === 'manual' && <MapPin className="w-3.5 h-3.5" />}
-            {m === 'ai' && <Sparkles className="w-3.5 h-3.5" />}
-            {m === 'list' && <Save className="w-3.5 h-3.5" />}
-            <span className="capitalize">{m}</span>
+            <Trash2 className="w-4 h-4" />
           </button>
-        ))}
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-4 min-h-0">
