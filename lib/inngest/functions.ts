@@ -120,6 +120,13 @@ return {
       
       const isGeocoded = coords.lng !== 0 || coords.lat !== 0;
 
+      // Ensure category matches CHECK constraint (Food, Drinks, Activity, Other)
+      const allowedCategories = ['Food', 'Drinks', 'Activity', 'Other'];
+      const rawCategory = (extraction.category || 'Other').toString();
+      const validatedCategory = allowedCategories.includes(rawCategory) 
+        ? rawCategory 
+        : (allowedCategories.find(c => c.toLowerCase() === rawCategory.toLowerCase()) || 'Other');
+
       const pinData = {
         // @ts-ignore
         venue_name: extraction.venueName,
@@ -127,12 +134,11 @@ return {
         city: extraction.locationContext, // Suburb + City info
         // @ts-ignore
         summary: extraction.summary,
-        // @ts-ignore
-        category: extraction.category,
+        category: validatedCategory,
         source_url: url,
         // @ts-ignore
         location: `POINT(${coords.lng} ${coords.lat})`,
-        status: isGeocoded ? 'completed' : 'needs_review'
+        status: isGeocoded ? 'completed' : 'failed'
       };
 
       let result;

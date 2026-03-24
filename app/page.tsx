@@ -353,12 +353,10 @@ export default function Home() {
                 </div>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                   {isLoadingPins && pins.length === 0 ? (
-                    [1, 2, 3].map(i => (
-                      <div key={i} className="p-3 rounded-xl border border-surface-border bg-surface/20 animate-pulse space-y-2">
-                        <div className="h-4 bg-surface-border rounded w-1/2" />
-                        <div className="h-3 bg-surface-border rounded w-3/4" />
-                      </div>
-                    ))
+                    <div className="h-full flex flex-col items-center justify-center py-20">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Initialising Pins...</p>
+                    </div>
                   ) : filteredPins.length > 0 ? (
                     filteredPins.map((pin) => (
                       <ActivityCard 
@@ -649,8 +647,8 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
   }
 
   const title = pin.venue_name || "Analysing...";
-  const status = pin.status === 'completed' ? 'success' : (pin.status === 'needs_review' ? 'warning' : 'processing');
-  const description = pin.summary || (pin.status === 'needs_review' ? "AI found the vibe, but couldn't pin the exact spot. Click edit to search manually." : "Extracting details from video...");
+  const status = pin.status === 'completed' ? 'success' : (pin.status === 'failed' ? 'warning' : 'processing');
+  const description = pin.summary || (pin.status === 'failed' ? "AI found the vibe, but couldn't pin the exact spot. Click edit to search manually." : "Extracting details from video...");
   const isFood = pin.category === 'Food';
   const isDrinks = pin.category === 'Drinks';
   const isOther = pin.category === 'Other';
@@ -671,7 +669,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
             "font-bold text-sm transition-colors pr-2 truncate", 
             active ? "text-foreground" : "text-foreground group-hover:text-primary transition-colors"
           )}>{title}</span>
-          {pin.status === 'needs_review' && (
+          {pin.status === 'failed' && (
             <div className="flex items-center gap-1 text-[9px] font-black text-amber-500 uppercase tracking-wider">
               <AlertCircle className="w-2.5 h-2.5" />
               <span>Location Unresolved</span>
