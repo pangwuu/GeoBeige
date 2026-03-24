@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import UnifiedSearchBar from "@/components/forms/UnifiedSearchBar";
 import { GlassCard, Badge, cn, Input } from "@/components/ui";
-import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle } from "lucide-react";
+import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deletePin, updatePin } from "@/app/actions/pins";
 import { searchPlaces } from "@/app/actions/manualPins";

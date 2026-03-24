@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { GlassCard, Badge, cn, Input } from "@/components/ui";
 import { 
+  AlertCircle,
   Sparkles, 
   MapPin, 
   Trash2, 
