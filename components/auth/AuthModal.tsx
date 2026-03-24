@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, Loader2, Compass, CheckCircle2, Lock, UserPlus, LogIn } from "lucide-react";
 import { GlassCard, Button, Input, cn } from "@/components/ui";
 import { signIn, signInWithPassword, signUpWithPassword } from "@/app/actions/auth";
+import { createClient } from "@/lib/supabase/client";
 
 type AuthType = 'magic' | 'password' | 'signup';
 
 export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [authType, setAuthType] = useState<AuthType>('password');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,26 +31,37 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClos
     
     try {
       if (authType === 'magic') {
-        const result = await signIn(email);
-        if (result.success) setSent(true);
-        else setError(result.error || "Failed to send magic link");
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          },
+        });
+        if (!error) setSent(true);
+        else setError(error.message);
       } else if (authType === 'password') {
-        const formData = new FormData();
-        formData.append("email", email);
-        formData.append("password", password);
-        const result = await signInWithPassword(formData);
-        if (result.success) onClose();
-        else setError(result.error || "Invalid login credentials");
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (!error) {
+          router.refresh();
+          onClose();
+        }
+        else setError(error.message);
       } else {
-        const formData = new FormData();
-        formData.append("email", email);
-        formData.append("password", password);
-        const result = await signUpWithPassword(formData);
-        if (result.success) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          },
+        });
+        if (!error) {
           setSent(true);
-          setMessage(result.message || "Check your email!");
+          setMessage("Check your email to confirm your account.");
         } else {
-          setError(result.error || "Failed to create account");
+          setError(error.message);
         }
       }
     } catch (err) {

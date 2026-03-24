@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import UnifiedSearchBar from "@/components/forms/UnifiedSearchBar";
 import { GlassCard, Badge, cn, Input } from "@/components/ui";
@@ -44,31 +45,35 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const supabase = createClient();
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   
+  const refreshUser = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  }, [supabase]);
 
   useEffect(() => {
     setMounted(true);
-    fetchUser();
+    refreshUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const newUser = session?.user || null;
-      setUser(newUser);
-      
-      // Force refresh data that depends on auth if needed, 
-      // though components usually re-render on user state change.
-      if (newUser && activeTab === 'itinerary') {
-        // This will trigger re-fetches in ItineraryDrawer due to its own useEffect on 'mode'
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        router.refresh();
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabase, router, refreshUser]);
 
-  const fetchUser = async () => {
-    const user = await getUser();
-    setUser(user);
-  };
+  // If the modal was just closed, proactively check for a user session
+  // This handles cases where the event listener might be slightly delayed
+  useEffect(() => {
+    if (!isAuthModalOpen && mounted) {
+      refreshUser();
+    }
+  }, [isAuthModalOpen, mounted, refreshUser]);
 
   useEffect(() => {
     const fetchPins = async () => {
@@ -185,6 +190,7 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    router.refresh();
   };  
 
   return (
