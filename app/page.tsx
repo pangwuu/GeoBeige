@@ -115,7 +115,7 @@ useEffect(() => {
               prev.map((p) => (p.id === payload.new.id ? payload.new : p))
             );
           } else if (payload.eventType === "DELETE") {
-            setPins((prev) => prev.filter((p) => p.id === payload.old.id));
+            setPins((prev) => prev.filter((p) => p.id !== payload.old.id));
           }
         }
       )
