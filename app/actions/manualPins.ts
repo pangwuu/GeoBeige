@@ -58,13 +58,14 @@ export async function addManualPin(data: {
     const allowedCategories = ['Food', 'Drinks', 'Activity', 'Other'];
     const validatedCategory = allowedCategories.includes(data.category) 
       ? data.category 
-      : (allowedCategories.find(c => c.toLowerCase() === data.category?.toLowerCase()) || 'Activity');
+      : (allowedCategories.find(c => c.toLowerCase() === data.category?.toLowerCase()) || 'Other');
 
     const { data: result, error } = await supabaseAdmin.from('pins').insert({
       venue_name: data.venue_name,
       city: data.city,
       summary: data.summary || "Manually added to map.",
       category: validatedCategory,
+      user_id: user.id, // Explicitly associate with the user
       location: `POINT(${data.lng} ${data.lat})`,
       status: 'completed'
     }).select();

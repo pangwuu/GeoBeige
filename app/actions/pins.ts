@@ -11,7 +11,7 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function submitVideoUrl(formData: FormData) {
+export async function submitVideoUrl(url: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -19,22 +19,21 @@ export async function submitVideoUrl(formData: FormData) {
     return { error: "Please sign in to add videos." };
   }
 
-  const url = formData.get("url") as string;
-
-  if (!url) {
-    return { error: "URL is required" };
+  if (!url || typeof url !== 'string') {
+    return { error: "Valid URL is required" };
   }
 
   try {
-    // 0. Check if this exact video already exists to save ALL costs (AI + Geocoding)
+    // 0. Check if THIS user has already submitted this exact video
     const { data: existingPin } = await supabaseAdmin
       .from('pins')
       .select('id')
       .eq('source_url', url)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (existingPin) {
-      return { success: true };
+      return { success: true, message: "Already in your collection" };
     }
 
     // 1. Create a "pending" pin immediately for UX feedback
@@ -42,13 +41,15 @@ export async function submitVideoUrl(formData: FormData) {
       venue_name: "Analysing...",
       status: 'processing',
       source_url: url,
-      category: 'Other', // Set a default category that satisfies the CHECK constraint
-      location: 'POINT(0 0)', // Placeholder to satisfy NOT NULL constraint
+      category: 'Other', 
+      user_id: user.id,
+      location: 'POINT(0 0)', 
       summary: "We're extracting the vibe and location from your video..."
     }).select().single();
 
     if (error) {
-      return { error: "Failed to queue video" };
+      console.error("Supabase Insertion Error:", error);
+      return { error: `Database error: ${error.message} (${error.code})` };
     }
 
     // 2. Trigger the Inngest background workflow with the pin ID

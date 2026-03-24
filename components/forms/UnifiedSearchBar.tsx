@@ -21,28 +21,35 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
   const [manualDescriptions, setManualDescriptions] = useState<Record<string, string>>({});
 
   const isUrl = (string: string) => {
+    let testStr = string.trim();
+    if (!/^https?:\/\//i.test(testStr)) {
+      testStr = 'https://' + testStr;
+    }
     try {
-      new URL(string);
-      return true;
+      const url = new URL(testStr);
+      return url.hostname.includes('.') && testStr.length > 8;
     } catch (_) {
       return false;
     }
   };
 
   async function handleUnifiedAction(formData: FormData) {
-    const value = formData.get("query") as string;
-    if (!value.trim()) return;
+    let value = (formData.get("query") as string || "").trim();
+    if (!value) return;
 
     if (isUrl(value)) {
+      // Ensure it has a protocol before sending to the backend
+      if (!/^https?:\/\//i.test(value)) {
+        value = 'https://' + value;
+      }
+      
       setLoading(true);
       setStatus('idle');
       setMessage("");
       setSearchResults([]);
       
       try {
-        const urlFormData = new FormData();
-        urlFormData.append("url", value);
-        const result = await submitVideoUrl(urlFormData);
+        const result = await submitVideoUrl(value);
         if (result.success) {
           setStatus('success');
           setMessage("Video queued for analysis");
@@ -150,16 +157,37 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
           <Button 
             type="submit" 
             size="sm"
-            isLoading={loading || manualLoading}
             disabled={!user || loading || manualLoading}
             className={cn(
-              "h-9 px-4 rounded-lg shrink-0 transition-all",
-              !user && "opacity-50 grayscale cursor-not-allowed"
+              "h-9 px-4 rounded-lg shrink-0 transition-all min-w-[100px]",
+              !user && "opacity-50 grayscale cursor-not-allowed",
+              status === 'success' && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
             )}
-            variant={status === 'success' ? 'secondary' : 'primary'}
           >
             <AnimatePresence mode="wait">
-              {status === 'idle' && !loading && !manualLoading && (
+              {loading || manualLoading ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="flex items-center gap-2"
+                >
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{isUrl(inputValue) ? 'Analysing...' : 'Searching...'}</span>
+                </motion.div>
+              ) : status === 'success' ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Queued</span>
+                </motion.div>
+              ) : (
                 <motion.div
                   key="idle"
                   initial={{ opacity: 0, y: 5 }}
@@ -169,18 +197,6 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
                 >
                   {isUrl(inputValue) ? <Sparkles className="w-3.5 h-3.5" /> : <Search className="w-3.5 h-3.5" />}
                   <span>{isUrl(inputValue) ? 'Analyse' : 'Search'}</span>
-                </motion.div>
-              )}
-              {status === 'success' && (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="flex items-center gap-2 text-emerald-500"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Queued</span>
                 </motion.div>
               )}
             </AnimatePresence>
