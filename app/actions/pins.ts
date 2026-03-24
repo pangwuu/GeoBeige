@@ -42,6 +42,7 @@ export async function submitVideoUrl(formData: FormData) {
       venue_name: "Analysing...",
       status: 'processing',
       source_url: url,
+      category: 'Other', // Set a default category that satisfies the CHECK constraint
       location: 'POINT(0 0)', // Placeholder to satisfy NOT NULL constraint
       summary: "We're extracting the vibe and location from your video..."
     }).select().single();
