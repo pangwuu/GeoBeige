@@ -19,10 +19,13 @@ export const processVideoWorkflow = inngest.createFunction(
     const { url, pinId } = event.data;
     console.log("DEBUG: Inngest workflow triggered for URL:", url, "Pin ID:", pinId);
 
-    // 1. Scrape Instagram Metadata via Apify
-    const metadata = await step.run("scrape-instagram", async () => {
-      console.log("DEBUG: Starting scrape-instagram step...");
-      // Return early if no token is found for local testing
+    // 1. Scrape Video Metadata (Instagram or TikTok)
+    const metadata = await step.run("scrape-video", async () => {
+      console.log("DEBUG: Starting scrape-video step for:", url);
+      
+      const isTikTok = url.includes("tiktok.com");
+      const isInstagram = url.includes("instagram.com");
+
       if (!process.env.APIFY_API_TOKEN) {
         console.warn("DEBUG: APIFY_API_TOKEN not found, using fallback demo data");
         return {
@@ -32,31 +35,31 @@ export const processVideoWorkflow = inngest.createFunction(
         };
       }
 
-      // Call Apify Instagram Scraper (Post-processing might take 30-120 seconds)
-      // Documentation verified: resultsType: "posts", addParentData: false
-      const response = await fetch(`https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${process.env.APIFY_API_TOKEN}`, {
+      // Branch based on platform
+      const actorId = isTikTok ? "apify~tiktok-scraper" : "apify~instagram-scraper";
+      const body = isTikTok 
+        ? { "postURLs": [url], "resultsPerPage": 1 }
+        : { "directUrls": [url], "resultsType": "posts", "resultsLimit": 1, "addParentData": false };
+
+      const response = await fetch(`https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${process.env.APIFY_API_TOKEN}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          "directUrls": [url],
-          "resultsType": "posts",
-          "resultsLimit": 1,
-          "addParentData": false
-        })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("DEBUG: Apify Error:", errorText);
+        console.error(`DEBUG: Apify ${isTikTok ? 'TikTok' : 'Instagram'} Error:`, errorText);
         throw new Error("Apify scraping failed");
       }
       
       const items = await response.json();
       const data = items[0];
 
+      // Normalise data for Gemini
       return {
-        transcription: data?.caption || "",
-        caption: `Post by ${data?.ownerUsername || 'Instagram User'}`,
+        transcription: isTikTok ? (data?.videoDescription || "") : (data?.caption || ""),
+        caption: isTikTok ? `TikTok by ${data?.authorMeta?.name || 'User'}` : `Instagram by ${data?.ownerUsername || 'User'}`,
         source_url: url
       };
     });

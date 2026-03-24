@@ -252,7 +252,7 @@ export default function Home() {
               <h1 className="text-xl font-black tracking-tighter text-foreground">GeoVibe</h1>
               <div className="flex flex-col gap-0.5 mt-0.5">
                 <p className="text-[9px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
-                  1. Paste video link to analyse
+                  1. Paste a TikTok or Instagram link to analyse
                 </p>
                 <p className="text-[9px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5"> 
                   2. Select pins to build itinerary
