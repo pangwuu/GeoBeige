@@ -40,6 +40,7 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeItineraryStops, setActiveItineraryStops] = useState<string[]>([]);
   const [itineraryLegs, setItineraryLegs] = useState<any[]>([]);
+  const [loadedItineraryId, setLoadedItineraryId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -51,7 +52,14 @@ export default function Home() {
     fetchUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      const newUser = session?.user || null;
+      setUser(newUser);
+      
+      // Force refresh data that depends on auth if needed, 
+      // though components usually re-render on user state change.
+      if (newUser && activeTab === 'itinerary') {
+        // This will trigger re-fetches in ItineraryDrawer due to its own useEffect on 'mode'
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -144,6 +152,7 @@ export default function Home() {
   const MAX_STOPS = 5;
 
   const handleAddStop = (pinId: string) => {
+    setLoadedItineraryId(null);
     setActiveItineraryStops(prev => {
       if (prev.includes(pinId)) return prev;
       if (prev.length >= MAX_STOPS) {
@@ -157,16 +166,19 @@ export default function Home() {
   };
 
   const handleReorderStops = (newOrder: string[]) => {
+    setLoadedItineraryId(null);
     setActiveItineraryStops(newOrder);
     setItineraryLegs([]); // Reset legs when order changes to force recalculation
   };
 
   const handleRemoveStop = (pinId: string) => {
+    setLoadedItineraryId(null);
     setActiveItineraryStops(prev => prev.filter(id => id !== pinId));
     setItineraryLegs([]); // Reset legs if stops change
   };
 
   const handleClearItinerary = () => {
+    setLoadedItineraryId(null);
     setActiveItineraryStops([]);
     setItineraryLegs([]);
   };
@@ -193,7 +205,7 @@ export default function Home() {
 
       {/* Floating Command Centre (Input) */}
       <div className="fixed top-4 lg:top-6 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-lg px-4 sm:px-6">
-        <UnifiedSearchBar />
+        <UnifiedSearchBar user={user} />
       </div>
 
       {/* Mobile Activity Toggle */}
@@ -238,7 +250,15 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tighter text-foreground">GeoVibe</h1>
-              <p className="text-[10px] font-bold text-muted uppercase tracking-[0.2em]">InstaNightPlanner</p>
+              <div className="flex flex-col gap-0.5 mt-0.5">
+                <p className="text-[9px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+                  1. Paste video link to analyse
+                </p>
+                <p className="text-[9px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5"> 
+                  2. Select pins to build itinerary
+                  
+                </p>
+              </div>
             </div>
           </div>
         </GlassCard>
@@ -301,7 +321,7 @@ export default function Home() {
                       onChange={(e) => setPinSearch(e.target.value)}
                     />
                   </div>
-                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar-hide">
                     {(['all', 'Food', 'Drinks', 'Activity', 'Other'] as const).map((cat) => (
                       <button
                         key={cat}
@@ -332,7 +352,7 @@ export default function Home() {
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-                  {isLoadingPins ? (
+                  {isLoadingPins && pins.length === 0 ? (
                     [1, 2, 3].map(i => (
                       <div key={i} className="p-3 rounded-xl border border-surface-border bg-surface/20 animate-pulse space-y-2">
                         <div className="h-4 bg-surface-border rounded w-1/2" />
@@ -364,7 +384,10 @@ export default function Home() {
             ) : (
               <ItineraryDrawer 
                 pins={pins}
+                user={user}
                 activeStops={activeItineraryStops}
+                loadedItineraryId={loadedItineraryId}
+                setLoadedItineraryId={setLoadedItineraryId}
                 onReorderStops={handleReorderStops}
                 onRemoveStop={handleRemoveStop}
                 onClear={handleClearItinerary}

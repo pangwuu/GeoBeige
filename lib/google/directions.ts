@@ -50,7 +50,7 @@ export async function getDirections(
       avoidHighways: false,
       avoidFerries: false
     },
-    languageCode: "en-AU",
+    // languageCode: "en-AU",
     units: "METRIC",
     polylineEncoding: "ENCODED_POLYLINE"
   };

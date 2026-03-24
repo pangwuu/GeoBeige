@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "InstaNightPlanner - GeoVibe",
+  title: "GeoVibe",
   description: "Curate personal maps from social media videos",
 };
 

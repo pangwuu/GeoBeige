@@ -4,10 +4,11 @@ import { useState } from "react";
 import { submitVideoUrl } from "@/app/actions/pins";
 import { searchPlaces, addManualPin } from "@/app/actions/manualPins";
 import { CommandCentre, Button, Input, cn, GlassCard } from "@/components/ui";
-import { Link2, Sparkles, CheckCircle2, Search, MapPin, Utensils, Compass, Beer, Loader2, X, MoreHorizontal } from "lucide-react";
+import { Link2, Sparkles, CheckCircle2, Search, MapPin, Utensils, Compass, Beer, Loader2, X, MoreHorizontal, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { User } from "@supabase/supabase-js";
 
-export default function UnifiedSearchBar() {
+export default function UnifiedSearchBar({ user }: { user: User | null }) {
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -17,6 +18,7 @@ export default function UnifiedSearchBar() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [manualLoading, setManualLoading] = useState(false);
   const [addingPinId, setAddingPinId] = useState<string | null>(null);
+  const [manualDescriptions, setManualDescriptions] = useState<Record<string, string>>({});
 
   const isUrl = (string: string) => {
     try {
@@ -78,7 +80,8 @@ export default function UnifiedSearchBar() {
   }
 
   async function handleAddManual(place: any, category: string) {
-    setAddingPinId(place.id);
+    const actionKey = `${place.id}:${category}`;
+    setAddingPinId(actionKey);
     try {
       const cityParts = place.place_name.split(',');
       const city = cityParts.length > 1 ? cityParts[cityParts.length - 2].trim() : "Unknown";
@@ -88,13 +91,19 @@ export default function UnifiedSearchBar() {
         city: city,
         lng: place.center[0],
         lat: place.center[1],
-        category: category
+        category: category,
+        summary: manualDescriptions[place.id]
       });
       
       if (result.success) {
         setTimeout(() => {
           setAddingPinId(null);
           setSearchResults(prev => prev.filter(r => r.id !== place.id));
+          setManualDescriptions(prev => {
+            const next = { ...prev };
+            delete next[place.id];
+            return next;
+          });
           if (searchResults.length <= 1) {
              setInputValue("");
           }
@@ -132,7 +141,7 @@ export default function UnifiedSearchBar() {
               name="query"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Paste link or search places..."
+              placeholder={!user ? "Sign in to add locations..." : "Paste link or search places..."}
               className="pl-10 bg-transparent border-none focus:ring-0 h-11"
               disabled={loading}
             />
@@ -142,7 +151,11 @@ export default function UnifiedSearchBar() {
             type="submit" 
             size="sm"
             isLoading={loading || manualLoading}
-            className="h-9 px-4 rounded-lg shrink-0"
+            disabled={!user || loading || manualLoading}
+            className={cn(
+              "h-9 px-4 rounded-lg shrink-0 transition-all",
+              !user && "opacity-50 grayscale cursor-not-allowed"
+            )}
             variant={status === 'success' ? 'secondary' : 'primary'}
           >
             <AnimatePresence mode="wait">
@@ -175,6 +188,17 @@ export default function UnifiedSearchBar() {
         </form>
         
         <AnimatePresence>
+          {!user && inputValue.trim().length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap shadow-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 backdrop-blur-md flex items-center gap-2"
+            >
+              <AlertCircle className="w-3 h-3" />
+              Sign in to add locations
+            </motion.div>
+          )}
           {message && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -221,49 +245,59 @@ export default function UnifiedSearchBar() {
                     </div>
                   </div>
 
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-muted uppercase tracking-widest pl-1">Enter a description</label>
+                    <Input 
+                      placeholder="e.g. Best espresso martinis in Sydney..." 
+                      className="h-8 py-1 text-[10px] bg-background/50"
+                      value={manualDescriptions[place.id] || ""}
+                      onChange={(e) => setManualDescriptions(prev => ({ ...prev, [place.id]: e.target.value }))}
+                    />
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleAddManual(place, 'Food')}
-                      disabled={addingPinId === place.id}
+                      disabled={!!addingPinId}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-amber-500 hover:border-amber-500/30 hover:bg-amber-500/5",
-                        addingPinId === place.id && "opacity-50"
+                        addingPinId && addingPinId !== `${place.id}:Food` && "opacity-50 grayscale"
                       )}
                     >
-                      {addingPinId === place.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Utensils className="w-3 h-3" />}
+                      {addingPinId === `${place.id}:Food` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Utensils className="w-3 h-3" />}
                       Food
                     </button>
                     <button
                       onClick={() => handleAddManual(place, 'Drinks')}
-                      disabled={addingPinId === place.id}
+                      disabled={!!addingPinId}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-purple-500 hover:border-purple-500/30 hover:bg-purple-500/5",
-                        addingPinId === place.id && "opacity-50"
+                        addingPinId && addingPinId !== `${place.id}:Drinks` && "opacity-50 grayscale"
                       )}
                     >
-                      {addingPinId === place.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Beer className="w-3 h-3" />}
+                      {addingPinId === `${place.id}:Drinks` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Beer className="w-3 h-3" />}
                       Drinks
                     </button>
                     <button
                       onClick={() => handleAddManual(place, 'Activity')}
-                      disabled={addingPinId === place.id}
+                      disabled={!!addingPinId}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-emerald-500 hover:border-emerald-500/30 hover:bg-emerald-500/5",
-                        addingPinId === place.id && "opacity-50"
+                        addingPinId && addingPinId !== `${place.id}:Activity` && "opacity-50 grayscale"
                       )}
                     >
-                      {addingPinId === place.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Compass className="w-3 h-3" />}
+                      {addingPinId === `${place.id}:Activity` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Compass className="w-3 h-3" />}
                       Activity
                     </button>
                     <button
                       onClick={() => handleAddManual(place, 'Other')}
-                      disabled={addingPinId === place.id}
+                      disabled={!!addingPinId}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-background text-muted border-surface-border hover:text-blue-500 hover:border-blue-500/30 hover:bg-blue-500/5",
-                        addingPinId === place.id && "opacity-50"
+                        addingPinId && addingPinId !== `${place.id}:Other` && "opacity-50 grayscale"
                       )}
                     >
-                      {addingPinId === place.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MoreHorizontal className="w-3 h-3" />}
+                      {addingPinId === `${place.id}:Other` ? <Loader2 className="w-3 h-3 animate-spin" /> : <MoreHorizontal className="w-3 h-3" />}
                       Other
                     </button>
                   </div>

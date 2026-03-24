@@ -44,6 +44,7 @@ export async function addManualPin(data: {
   lng: number;
   lat: number;
   category: string;
+  summary?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -57,7 +58,7 @@ export async function addManualPin(data: {
     const { data: result, error } = await supabaseAdmin.from('pins').insert({
       venue_name: data.venue_name,
       city: data.city,
-      summary: "Manually added to map.",
+      summary: data.summary || "Manually added to map.",
       category: data.category || 'Activity',
       location: `POINT(${data.lng} ${data.lat})`,
       status: 'completed'

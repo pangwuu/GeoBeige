@@ -68,7 +68,7 @@ async function googlePlaceSearch(venueName: string, locationContext: string, api
 }
 
 async function fallbackGeocode(venueName: string, apiKey: string) {
-  const query = `${venueName}, Australia`;
+  const query = `${venueName}`;
   console.log(`DEBUG: Retrying with broader query: "${query}"`);
   
   const endpoint = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}`;

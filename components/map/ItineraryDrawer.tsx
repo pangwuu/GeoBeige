@@ -30,7 +30,10 @@ import { User } from "@supabase/supabase-js";
 
 interface ItineraryDrawerProps {
   pins: any[];
+  user: User | null;
   activeStops: string[];
+  loadedItineraryId: string | null;
+  setLoadedItineraryId: (id: string | null) => void;
   onReorderStops: (newOrder: string[]) => void;
   onRemoveStop: (pinId: string) => void;
   onClear: () => void;
@@ -41,7 +44,10 @@ interface ItineraryDrawerProps {
 
 export default function ItineraryDrawer({ 
   pins, 
+  user,
   activeStops, 
+  loadedItineraryId,
+  setLoadedItineraryId,
   onReorderStops,
   onRemoveStop, 
   onClear,
@@ -63,23 +69,20 @@ export default function ItineraryDrawer({
   const [savedItineraries, setSavedItineraries] = useState<any[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [listSearch, setListSearch] = useState("");
-  const [user, setUser] = useState<User | null>(null);
 
   const selectedPins = activeStops.map(id => pins.find(p => p.id === id)).filter(Boolean);
 
   useEffect(() => {
-    fetchUser();
     if (mode === 'list') {
       fetchItineraries();
     }
-  }, [mode]);
-
-  const fetchUser = async () => {
-    const u = await getUser();
-    setUser(u);
-  };
+  }, [mode, user]);
 
   const fetchItineraries = async () => {
+    if (!user) {
+      setSavedItineraries([]);
+      return;
+    }
     setIsLoadingList(true);
     const result = await getItineraries();
     if (result.success) {
@@ -96,12 +99,16 @@ export default function ItineraryDrawer({
     }
   };
 
+  const handleClear = () => {
+    onClear();
+  };
+
   const handleAiGenerate = async () => {
     if (!aiPrompt) return;
     setIsGenerating(true);
     const result = await getAISuggestedItinerary(aiPrompt);
     if (result.success && result.suggestion) {
-      onClear();
+      handleClear();
       result.suggestion.stops.forEach((stop: any) => {
         onAddStop(stop.pinId);
       });
@@ -248,12 +255,18 @@ export default function ItineraryDrawer({
                       <SavedItineraryCard 
                         key={itin.id} 
                         itinerary={itin} 
+                        isLoaded={loadedItineraryId === itin.id}
                         onDelete={() => handleDeleteItinerary(itin.id)}
                         onLoad={() => {
                           onClear();
                           itin.stops.sort((a: any, b: any) => a.stop_order - b.stop_order).forEach((s: any) => onAddStop(s.pin_id));
                           onRoutesGenerated(itin.legs);
+                          setLoadedItineraryId(itin.id);
                           setMode('manual');
+                        }}
+                        onUnload={() => {
+                          onClear();
+                          setLoadedItineraryId(null);
                         }}
                       />
                     ))
@@ -308,7 +321,7 @@ export default function ItineraryDrawer({
                   {activeStops.length} {activeStops.length === 1 ? 'Stop' : 'Stops'} Selected
                 </h3>
                 {activeStops.length > 0 && (
-                  <button onClick={onClear} className="text-[10px] text-red-500 font-bold hover:underline uppercase tracking-wider">
+                  <button onClick={handleClear} className="text-[10px] text-red-500 font-bold hover:underline uppercase tracking-wider">
                     Clear All
                   </button>
                 )}
@@ -491,7 +504,19 @@ export default function ItineraryDrawer({
   );
 }
 
-function SavedItineraryCard({ itinerary, onDelete, onLoad }: { itinerary: any, onDelete: () => void, onLoad: () => void }) {
+function SavedItineraryCard({ 
+  itinerary, 
+  onDelete, 
+  onLoad, 
+  onUnload, 
+  isLoaded 
+}: { 
+  itinerary: any, 
+  onDelete: () => void, 
+  onLoad: () => void, 
+  onUnload: () => void, 
+  isLoaded: boolean 
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ title: itinerary.title, description: itinerary.description || "" });
   const [isUpdating, setIsUpdating] = useState(false);
@@ -595,13 +620,23 @@ function SavedItineraryCard({ itinerary, onDelete, onLoad }: { itinerary: any, o
             })}
           </div>
 
-          <button 
-            onClick={onLoad}
-            className="w-full py-1.5 bg-surface hover:bg-primary/10 text-muted hover:text-primary text-[9px] font-black uppercase tracking-widest rounded-lg border border-surface-border hover:border-primary/30 transition-all flex items-center justify-center gap-2"
-          >
-            <Navigation className="w-3 h-3" />
-            Load to Map
-          </button>
+            {isLoaded ? (
+              <button 
+                onClick={onUnload}
+                className="w-full py-1.5 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest rounded-lg border border-primary/30 transition-all flex items-center justify-center gap-2"
+              >
+                <X className="w-3 h-3" />
+                Unload from Map
+              </button>
+            ) : (
+              <button 
+                onClick={onLoad}
+                className="w-full py-1.5 bg-surface hover:bg-primary/10 text-muted hover:text-primary text-[9px] font-black uppercase tracking-widest rounded-lg border border-surface-border hover:border-primary/30 transition-all flex items-center justify-center gap-2"
+              >
+                <Navigation className="w-3 h-3" />
+                Load to Map
+              </button>
+            )}
         </>
       )}
     </div>
