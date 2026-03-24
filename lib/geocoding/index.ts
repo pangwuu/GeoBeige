@@ -1,7 +1,6 @@
 export async function geocode(venueName: string, locationContext: string) {
   // Google is the gold standard for "Venue Name, Suburb, City" queries
   const query = `${venueName}, ${locationContext}, Australia`;
-  console.log(`DEBUG: Google Geocoding query: "${query}"`);
 
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
@@ -17,12 +16,10 @@ export async function geocode(venueName: string, locationContext: string) {
 
     if (data.status === "OK" && data.results.length > 0) {
       const { lat, lng } = data.results[0].geometry.location;
-      console.log(`DEBUG: Google Geocoding success: [${lng}, ${lat}] - ${data.results[0].formatted_address}`);
       return { lng, lat };
     }
 
     if (data.status === "ZERO_RESULTS") {
-      console.warn(`DEBUG: Google Geocoding found no results for "${query}"`);
       // Fallback 1: Try Google Places Text Search (better for venues)
       try {
         return await googlePlaceSearch(venueName, locationContext, apiKey);
@@ -34,14 +31,12 @@ export async function geocode(venueName: string, locationContext: string) {
 
     throw new Error(`Google Geocoding failed with status: ${data.status}`);
   } catch (error) {
-    console.error("DEBUG: Geocoding Error:", error);
     throw error;
   }
 }
 
 async function googlePlaceSearch(venueName: string, locationContext: string, apiKey: string) {
   const query = `${venueName} ${locationContext} Australia`;
-  console.log(`DEBUG: Trying Google Places Search for: "${query}"`);
 
   // New Places API (Text Search) endpoint
   const endpoint = "https://places.googleapis.com/v1/places:searchText";
@@ -60,7 +55,6 @@ async function googlePlaceSearch(venueName: string, locationContext: string, api
 
   if (data.places && data.places.length > 0) {
     const { latitude, longitude } = data.places[0].location;
-    console.log(`DEBUG: Google Places Search success: [${longitude}, ${latitude}] - ${data.places[0].formattedAddress}`);
     return { lng: longitude, lat: latitude };
   }
 
@@ -69,7 +63,6 @@ async function googlePlaceSearch(venueName: string, locationContext: string, api
 
 async function fallbackGeocode(venueName: string, apiKey: string) {
   const query = `${venueName}`;
-  console.log(`DEBUG: Retrying with broader query: "${query}"`);
   
   const endpoint = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}`;
   const response = await fetch(endpoint);

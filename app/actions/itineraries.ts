@@ -21,7 +21,6 @@ export async function getAISuggestedItinerary(prompt: string, suburb?: string) {
   
   const { data: pins, error } = await query;
   if (error || !pins) {
-    console.error("DEBUG: Error fetching pins for AI:", error);
     return { error: "Failed to fetch nearby locations." };
   }
 
@@ -30,7 +29,6 @@ export async function getAISuggestedItinerary(prompt: string, suburb?: string) {
     const suggestion = await generateItineraryFromPins(pins, prompt);
     return { success: true, suggestion };
   } catch (error) {
-    console.error("DEBUG: AI Itinerary generation error:", error);
     return { error: "Failed to generate itinerary with AI." };
   }
 }
@@ -43,7 +41,6 @@ export async function generateRouteData(stopPinIds: string[], transportMode: Tra
     .in('id', stopPinIds);
 
   if (error || !pins || pins.length < 2) {
-    console.error("DEBUG: Error fetching pins for routing:", error);
     return { error: "Need at least 2 valid locations to generate a route." };
   }
 
@@ -62,7 +59,6 @@ export async function generateRouteData(stopPinIds: string[], transportMode: Tra
     const destCoords = decodePostGISPoint(destPin.location);
 
     if (!originCoords || !destCoords) {
-      console.warn(`DEBUG: Could not decode coordinates for leg ${i}`);
       continue;
     }
 
@@ -78,7 +74,6 @@ export async function generateRouteData(stopPinIds: string[], transportMode: Tra
         ...directions
       });
     } catch (err) {
-      console.error(`DEBUG: Failed to get directions for leg ${i}:`, err);
     }
   }
 
@@ -162,7 +157,6 @@ export async function saveItinerary(itinerary: {
     revalidatePath("/");
     return { success: true, itineraryId: newItinerary.id };
   } catch (err) {
-    console.error("DEBUG: Failed to save itinerary:", err);
     return { error: "An error occurred while saving your itinerary." };
   }
 }
@@ -189,7 +183,6 @@ export async function getItineraries() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error("DEBUG: Error fetching itineraries:", error);
     return { error: "Failed to fetch itineraries." };
   }
 
@@ -209,7 +202,6 @@ export async function deleteItinerary(id: string) {
     .eq('created_by', userData.user.id);
 
   if (error) {
-    console.error("DEBUG: Error deleting itinerary:", error);
     return { error: "Failed to delete itinerary." };
   }
 
@@ -230,7 +222,6 @@ export async function updateItinerary(id: string, updates: { title?: string; des
     .eq('created_by', userData.user.id);
 
   if (error) {
-    console.error("DEBUG: Error updating itinerary:", error);
     return { error: "Failed to update itinerary." };
   }
 

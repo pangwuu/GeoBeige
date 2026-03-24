@@ -53,7 +53,6 @@ export async function addManualPin(data: {
     return { success: false, error: "Please sign in to add places." };
   }
 
-  console.log("DEBUG: addManualPin called with:", data);
   try {
     const { data: result, error } = await supabaseAdmin.from('pins').insert({
       venue_name: data.venue_name,
@@ -65,13 +64,11 @@ export async function addManualPin(data: {
     }).select();
 
     if (error) {
-      console.error("DEBUG: Supabase insertion error:", error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("DEBUG: Unexpected error in addManualPin:", error);
     return { success: false, error: "Database insertion failed" };
   }
 }

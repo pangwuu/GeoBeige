@@ -37,7 +37,6 @@ export const decodePostGISPoint = (locationData: string | any): { lng: number, l
     
     return { lng, lat };
   } catch (e) {
-    console.error("DEBUG: WKB Decode Error:", e);
     return null;
   }
 };

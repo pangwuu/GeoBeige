@@ -17,67 +17,60 @@ export const processVideoWorkflow = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { url, pinId } = event.data;
-    console.log("DEBUG: Inngest workflow triggered for URL:", url, "Pin ID:", pinId);
 
     // 1. Scrape Video Metadata (Instagram or TikTok)
     const metadata = await step.run("scrape-video", async () => {
-      console.log("DEBUG: Starting scrape-video step for:", url);
       
       const isTikTok = url.includes("tiktok.com");
       const isInstagram = url.includes("instagram.com");
 
       if (!process.env.APIFY_API_TOKEN) {
-        console.warn("DEBUG: APIFY_API_TOKEN not found, using fallback demo data");
         return {
           transcription: "I just found the most incredible hidden bar in Melbourne. It's called Section 8 and it's built out of shipping containers. The vibes are 10/10.",
           caption: "Best bars in Melbourne #melbourne #travel",
           source_url: url
         };
       }
+// Branch based on platform
+const actorId = isTikTok ? "clockworks~tiktok-scraper" : "apify~instagram-scraper";
+const body = isTikTok 
+  ? { "postURLs": [url], "resultsPerPage": 1 }
+  : { "directUrls": [url], "resultsType": "posts", "resultsLimit": 1, "addParentData": false };
 
-      // Branch based on platform
-      const actorId = isTikTok ? "apify~tiktok-scraper" : "apify~instagram-scraper";
-      const body = isTikTok 
-        ? { "postURLs": [url], "resultsPerPage": 1 }
-        : { "directUrls": [url], "resultsType": "posts", "resultsLimit": 1, "addParentData": false };
+const response = await fetch(`https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${process.env.APIFY_API_TOKEN}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body)
+});
 
-      const response = await fetch(`https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${process.env.APIFY_API_TOKEN}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+if (!response.ok) {
+  const errorText = await response.text();
+  console.error(`Apify ${isTikTok ? 'TikTok' : 'Instagram'} Error:`, errorText);
+  throw new Error("Apify scraping failed");
+}
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`DEBUG: Apify ${isTikTok ? 'TikTok' : 'Instagram'} Error:`, errorText);
-        throw new Error("Apify scraping failed");
-      }
-      
-      const items = await response.json();
-      const data = items[0];
+const items = await response.json();
+const data = items[0];
 
-      // Normalise data for Gemini
-      return {
-        transcription: isTikTok ? (data?.videoDescription || "") : (data?.caption || ""),
-        caption: isTikTok ? `TikTok by ${data?.authorMeta?.name || 'User'}` : `Instagram by ${data?.ownerUsername || 'User'}`,
-        source_url: url
-      };
+// Normalise data for Gemini
+return {
+  transcription: isTikTok ? (data?.text || "") : (data?.caption || ""),
+  caption: isTikTok ? `TikTok by ${data?.authorMeta?.name || 'User'}` : `Instagram by ${data?.ownerUsername || 'User'}`,
+  source_url: url
+};
+
     });
 
-    console.log("DEBUG: Metadata extracted:", metadata);
 
     // 2. AI Extraction via Gemini
     const extraction = await step.run("ai-extraction", async () => {
-      console.log("DEBUG: Starting ai-extraction step...");
       // @ts-ignore
       return await processVideoContent(metadata.transcription, metadata.caption);
     });
 
-    console.log("DEBUG: AI extraction result:", extraction);
 
     // 3. Geocoding via Google (with caching)
     const coords = await step.run("geocoding", async () => {
-      console.log("DEBUG: Starting geocoding step...");
       
       // Check if we've already geocoded this exact venue/suburb combo
       const { data: existingVenue } = await supabaseAdmin
@@ -90,7 +83,6 @@ export const processVideoWorkflow = inngest.createFunction(
         .maybeSingle();
 
       if (existingVenue?.location) {
-        console.log("DEBUG: Venue cache HIT! Reusing coordinates for:", extraction.venueName);
         
         // Handle string format
         if (typeof existingVenue.location === 'string' && existingVenue.location.startsWith('POINT')) {
@@ -118,16 +110,13 @@ export const processVideoWorkflow = inngest.createFunction(
       try {
         return await geocode(extraction.venueName, extraction.locationContext);
       } catch (err) {
-        console.warn("DEBUG: Geocoding failed for:", extraction.venueName, "Error:", err);
         return { lng: 0, lat: 0 };
       }
     });
 
-    console.log("DEBUG: Geocoding result:", coords);
 
     // 4. Update existing pin or save as new
     await step.run("save-to-db", async () => {
-      console.log("DEBUG: Starting save-to-db step for pinId:", pinId);
       
       const isGeocoded = coords.lng !== 0 || coords.lat !== 0;
 
@@ -163,10 +152,8 @@ export const processVideoWorkflow = inngest.createFunction(
       }
 
       if (result.error) {
-        console.error("DEBUG: Supabase Error in workflow:", result.error);
         throw result.error;
       }
-      console.log("DEBUG: Successfully saved pin to database:", result.data);
 
       // Trigger was here, removed.
     });

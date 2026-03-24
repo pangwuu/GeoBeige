@@ -47,7 +47,6 @@ export async function submitVideoUrl(formData: FormData) {
     }).select().single();
 
     if (error) {
-      console.error("DEBUG: Error creating pending pin:", error);
       return { error: "Failed to queue video" };
     }
 
@@ -63,7 +62,6 @@ export async function submitVideoUrl(formData: FormData) {
     revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error("DEBUG: Unexpected error in submitVideoUrl:", error);
     return { error: "An unexpected error occurred" };
   }
 }
@@ -81,14 +79,12 @@ export async function deletePin(id: string) {
       .eq('id', id);
 
     if (error) {
-      console.error("DEBUG: Error deleting pin:", error);
       return { error: "Failed to delete" };
     }
 
     revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error("DEBUG: Unexpected error in deletePin:", error);
     return { error: "An unexpected error occurred" };
   }
 }
@@ -110,14 +106,12 @@ export async function updatePin(id: string, updates: {
       .eq('id', id);
 
     if (error) {
-      console.error("DEBUG: Error updating pin:", error);
       return { error: "Failed to update" };
     }
 
     revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error("DEBUG: Unexpected error in updatePin:", error);
     return { error: "An unexpected error occurred" };
   }
 }

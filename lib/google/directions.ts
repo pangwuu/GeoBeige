@@ -70,7 +70,6 @@ export async function getDirections(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("DEBUG: Google Routes API Error:", data);
       throw new Error(`Google Routes API failed: ${data.error?.message || response.statusText}`);
     }
 
@@ -88,7 +87,6 @@ export async function getDirections(
       mode: mode
     };
   } catch (error) {
-    console.error("DEBUG: Google Routes API Fetch Error:", error);
     throw error;
   }
 }
