@@ -252,14 +252,14 @@ useEffect(() => {
       {/* Glass Sidebar */}
       <aside className={cn(
         "fixed z-[1200] lg:z-[900] transition-all duration-500 ease-in-out flex flex-col gap-4",
-        "lg:top-6 lg:left-6 lg:bottom-6 lg:w-[400px] lg:pointer-events-none",
+        "lg:top-4 lg:left-6 lg:bottom-4 lg:w-[400px] lg:pointer-events-none",
         !mounted 
-          ? "bottom-[-100%] left-0 right-0 h-[85vh] w-full p-4 pointer-events-none"
+          ? "bottom-[-100%] left-0 right-0 h-[92vh] w-full p-4 pointer-events-none"
           : isSidebarOpen 
-            ? "bottom-0 left-0 right-0 h-[85vh] w-full p-4 pointer-events-auto" 
-            : "bottom-[-100%] left-0 right-0 h-[85vh] w-full p-4 pointer-events-none lg:pointer-events-none"
+            ? "bottom-0 left-0 right-0 h-[92vh] w-full p-4 pointer-events-auto" 
+            : "bottom-[-100%] left-0 right-0 h-[92vh] w-full p-4 pointer-events-none lg:pointer-events-none"
       )}>
-        <GlassCard className="hidden lg:block p-5 pointer-events-auto">
+        <GlassCard className="hidden lg:block p-4 pointer-events-auto shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
               <Compass className="text-white w-6 h-6" />
@@ -279,8 +279,8 @@ useEffect(() => {
           </div>
         </GlassCard>
 
-        <GlassCard className="flex-1 p-5 flex flex-col gap-6 pointer-events-auto overflow-hidden relative">
-          <div className="lg:hidden flex items-center justify-between mb-2">
+        <GlassCard className="flex-1 p-4 flex flex-col gap-4 pointer-events-auto overflow-hidden relative">
+          <div className="lg:hidden flex items-center justify-between mb-2 shrink-0">
             <div className="w-10 h-1 bg-surface-border rounded-full absolute top-3 left-1/2 -translate-x-1/2" />
             <h2 className="text-lg font-black text-foreground mt-2">
               {activeTab === 'activity' ? 'Activity' : activeTab === 'search' ? 'Manual Add' : 'Itinerary'}
@@ -428,13 +428,6 @@ useEffect(() => {
             )}
           </div>
 
-          <footer className="pt-4 border-t border-surface-border text-[10px] text-muted font-medium flex justify-between items-center">
-            <span>&copy; 2026 GeoVibe</span>
-            <span className="flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity cursor-help">
-              <span className="w-1 h-1 bg-primary rounded-full animate-pulse" />
-              Sydney, AU
-            </span>
-          </footer>
         </GlassCard>
       </aside>
 

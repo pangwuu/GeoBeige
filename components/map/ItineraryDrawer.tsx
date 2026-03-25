@@ -65,6 +65,7 @@ export default function ItineraryDrawer({
   const [isGeneratingRoute, setIsGeneratingRoute] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [transportMode, setTransportMode] = useState<TransportMode>('transit');
+  const [calculatedMode, setCalculatedMode] = useState<TransportMode | null>(null);
   const [itineraryData, setItineraryData] = useState<{
     title: string;
     description: string;
@@ -77,6 +78,14 @@ export default function ItineraryDrawer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedPins = activeStops.map(id => pins.find(p => p.id === id)).filter(Boolean);
+
+  // Clear legs if the stops order or count changes to avoid showing stale data
+  useEffect(() => {
+    if (itineraryData?.legs && itineraryData.legs.length > 0) {
+      setItineraryData(prev => prev ? { ...prev, legs: [] } : null);
+      setCalculatedMode(null);
+    }
+  }, [activeStops.join(',')]);
 
   useEffect(() => {
     if (errorMessage) {
@@ -132,6 +141,7 @@ export default function ItineraryDrawer({
         description: result.suggestion.description,
         legs: []
       });
+      setCalculatedMode(null);
       setMode('manual');
     } else {
       setErrorMessage(result.error || "Failed to generate AI plan");
@@ -164,6 +174,7 @@ export default function ItineraryDrawer({
         description: prev?.description || "",
         legs: result.legs
       }));
+      setCalculatedMode(transportMode);
     } else {
       setErrorMessage(result.error || "Failed to generate route");
     }
@@ -193,6 +204,7 @@ export default function ItineraryDrawer({
       alert("Itinerary saved successfully!");
       onClear();
       setItineraryData(null);
+      setCalculatedMode(null);
     } else {
       setErrorMessage(result.error || "Failed to save itinerary");
     }
@@ -200,14 +212,14 @@ export default function ItineraryDrawer({
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4 h-full overflow-hidden">
       <AnimatePresence>
         {errorMessage && (
           <motion.div
             initial={{ opacity: 0, height: 0, marginBottom: 0 }}
             animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            className="overflow-hidden"
+            className="overflow-hidden shrink-0"
           >
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-3 relative">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
@@ -223,7 +235,7 @@ export default function ItineraryDrawer({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <div className="flex-1 flex bg-background/50 p-1 rounded-xl border border-surface-border">
           {(['manual', 'ai', 'list'] as const).map((m) => (
             <button 
@@ -244,7 +256,7 @@ export default function ItineraryDrawer({
         {activeStops.length > 0 && (
           <button 
             onClick={onClear}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-all shadow-sm"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-all shadow-sm shrink-0"
             title="Clear Itinerary"
           >
             <Trash2 className="w-4 h-4" />
@@ -252,7 +264,7 @@ export default function ItineraryDrawer({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-4 min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
         <AnimatePresence mode="wait">
           {mode === 'list' ? (
             <motion.div 
@@ -260,9 +272,9 @@ export default function ItineraryDrawer({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="flex-1 flex flex-col gap-4 min-h-0"
+              className="flex-1 flex flex-col min-h-0"
             >
-              <div className="relative">
+              <div className="relative mb-4 shrink-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
                 <Input 
                   placeholder="Search itineraries..." 
@@ -272,7 +284,7 @@ export default function ItineraryDrawer({
                 />
               </div>
 
-              <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar min-h-0">
                 {!user ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                     <div className="w-16 h-16 rounded-3xl bg-background flex items-center justify-center mb-4 border border-surface-border shadow-xl">
@@ -323,13 +335,13 @@ export default function ItineraryDrawer({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-3 p-4 rounded-xl bg-primary/5 border border-primary/20"
+              className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0 space-y-3 p-4 rounded-xl bg-primary/5 border border-primary/20"
             >
               <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5" />
-                Gemini Intelligence
+                Plan generator
               </h4>
-              <p className="text-[11px] text-muted font-medium">Describe your ideal night out, and Gemini will curate the best path from your saved pins.</p>
+              <p className="text-[11px] text-muted font-medium">Describe your ideal plan, and GeoVibe will curate the best path from your saved pins.</p>
               <div className="relative">
                 <textarea 
                   value={aiPrompt}
@@ -353,9 +365,9 @@ export default function ItineraryDrawer({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="flex-1 flex flex-col gap-4 min-h-0"
+              className="flex-1 flex flex-col min-h-0"
             >
-              <div className="flex items-center justify-between px-1">
+              <div className="flex items-center justify-between px-1 mb-3 shrink-0">
                 <h3 className="text-[10px] font-black uppercase text-muted tracking-[0.2em]">
                   {activeStops.length} {activeStops.length === 1 ? 'Stop' : 'Stops'} Selected
                 </h3>
@@ -370,66 +382,71 @@ export default function ItineraryDrawer({
                 axis="y" 
                 values={activeStops} 
                 onReorder={onReorderStops}
-                className="space-y-2 flex-1 overflow-y-auto pr-1 min-h-0 custom-scrollbar"
+                className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0 space-y-2 pb-4"
               >
-                {selectedPins.length > 0 ? (
-                  selectedPins.map((pin, idx) => (
-                    <Reorder.Item 
-                      key={pin.id} 
-                      value={pin.id}
-                      className="group relative"
-                    >
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-surface/50 border border-surface-border group-hover:bg-surface transition-all">
-                        <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-muted transition-colors">
-                          <GripVertical className="w-4 h-4" />
-                        </div>
-                        <div className="w-6 h-6 rounded-full bg-background border border-surface-border flex items-center justify-center text-[10px] font-black text-muted group-hover:text-primary transition-colors">
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-foreground truncate tracking-tight">{pin.venue_name}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] text-muted font-bold uppercase tracking-wider">{pin.city}</span>
-                            <Badge 
-                              status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : 'success')} 
-                              className={cn(
-                                "text-[8px] px-1 py-0 h-3 flex items-center leading-none",
-                                pin.category === 'Drinks' && "bg-purple-500/10 text-purple-500 border-purple-500/20",
-                                pin.category === 'Other' && "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                              )}
-                            >
-                              {pin.category}
-                            </Badge>
+                {activeStops.length > 0 ? (
+                  activeStops.map((id, idx) => {
+                    const pin = pins.find(p => p.id === id);
+                    if (!pin) return null;
+                    
+                    return (
+                      <Reorder.Item 
+                        key={pin.id} 
+                        value={pin.id}
+                        className="group relative"
+                      >
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-surface/50 border border-surface-border group-hover:bg-surface transition-all">
+                          <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-muted transition-colors">
+                            <GripVertical className="w-4 h-4" />
                           </div>
-                        </div>
-                        <button 
-                          onClick={() => onRemoveStop(pin.id)}
-                          className="p-1.5 opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      
-                      {idx < selectedPins.length - 1 && (
-                        <div className="ml-10 py-1 flex items-center gap-3">
-                          <div className="h-10 border-l-2 border-dashed border-surface-border ml-[-1px] shrink-0" />
-                          
-                          {itineraryData?.legs[idx] && (
-                            <div className="flex items-center gap-2 px-3 py-1 bg-surface border border-surface-border rounded-full animate-in fade-in slide-in-from-left-2 duration-300 shadow-sm">
-                              <Clock className="w-2.5 h-2.5 text-muted" />
-                              <span className="text-[9px] font-black text-muted uppercase tracking-wider">
-                                {formatDuration(itineraryData.legs[idx].duration_seconds)}
-                              </span>
-                              <div className="w-1 h-1 rounded-full bg-surface-border" />
-                              <span className="text-[9px] font-bold text-muted uppercase tracking-wider">
-                                {formatDistance(itineraryData.legs[idx].distance_meters)}
-                              </span>
+                          <div className="w-6 h-6 rounded-full bg-background border border-surface-border flex items-center justify-center text-[10px] font-black text-muted group-hover:text-primary transition-colors">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-foreground truncate tracking-tight">{pin.venue_name}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] text-muted font-bold uppercase tracking-wider">{pin.city}</span>
+                              <Badge 
+                                status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : 'success')} 
+                                className={cn(
+                                  "text-[8px] px-1 py-0 h-3 flex items-center leading-none",
+                                  pin.category === 'Drinks' && "bg-purple-500/10 text-purple-500 border-purple-500/20",
+                                  pin.category === 'Other' && "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                                )}
+                              >
+                                {pin.category}
+                              </Badge>
                             </div>
-                          )}
+                          </div>
+                          <button 
+                            onClick={() => onRemoveStop(pin.id)}
+                            className="p-1.5 opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      )}
-                    </Reorder.Item>
-                  ))
+                        
+                        {idx < activeStops.length - 1 && (
+                          <div className="ml-10 py-1 flex items-center gap-3">
+                            <div className="h-10 border-l-2 border-dashed border-surface-border ml-[-1px] shrink-0" />
+                            
+                            {itineraryData?.legs[idx] && (
+                              <div className="flex items-center gap-2 px-3 py-1 bg-surface border border-surface-border rounded-full animate-in fade-in slide-in-from-left-2 duration-300 shadow-sm">
+                                <Clock className="w-2.5 h-2.5 text-muted" />
+                                <span className="text-[9px] font-black text-muted uppercase tracking-wider">
+                                  {formatDuration(itineraryData.legs[idx].duration_seconds)}
+                                </span>
+                                <div className="w-1 h-1 rounded-full bg-surface-border" />
+                                <span className="text-[9px] font-bold text-muted uppercase tracking-wider">
+                                  {formatDistance(itineraryData.legs[idx].distance_meters)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Reorder.Item>
+                    );
+                  })
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
                     <div className="w-16 h-16 rounded-3xl bg-background flex items-center justify-center mb-4 border border-surface-border shadow-xl">
@@ -444,8 +461,8 @@ export default function ItineraryDrawer({
               </Reorder.Group>
 
               {activeStops.length >= 2 && (
-                <div className="pt-4 border-t border-surface-border space-y-4">
-                  {!itineraryData?.legs.length && (
+                <div className="pt-4 border-t border-surface-border space-y-4 shrink-0 mt-2">
+                  {(itineraryData?.legs.length === 0 || transportMode !== calculatedMode) && (
                     <button 
                       onClick={handleOptimise}
                       disabled={isOptimising}
@@ -459,7 +476,7 @@ export default function ItineraryDrawer({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] font-black text-muted uppercase tracking-widest">Transport Mode</label>
-                      {itineraryData?.legs.length ? (
+                      {itineraryData?.legs.length && transportMode === calculatedMode ? (
                          <div className="flex items-center gap-2">
                             <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">
                               Total: {formatDuration(itineraryData.legs.reduce((acc, l) => acc + (l.duration_seconds || 0), 0))}
@@ -485,7 +502,7 @@ export default function ItineraryDrawer({
                     </div>
                   </div>
 
-                  {itineraryData?.legs.length ? (
+                  {itineraryData?.legs.length && transportMode === calculatedMode ? (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                       <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
                          <div className="flex items-center gap-2 text-emerald-500 mb-1">
@@ -530,7 +547,7 @@ export default function ItineraryDrawer({
                       className="w-full py-4 bg-primary text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                     >
                       {isGeneratingRoute ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
-                      Generate Route & Timings
+                      {itineraryData?.legs.length && transportMode !== calculatedMode ? "Re-calculate Route" : "Generate Route & Timings"}
                     </button>
                   )}
                 </div>
