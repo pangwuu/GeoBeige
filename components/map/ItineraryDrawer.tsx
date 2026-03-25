@@ -20,7 +20,8 @@ import {
   Compass,
   LogIn,
   MoreHorizontal,
-  GripVertical
+  GripVertical,
+  Share2
 } from "lucide-react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { getAISuggestedItinerary, generateRouteData, saveItinerary, getItineraries, deleteItinerary, updateItinerary, optimiseRoute } from "@/app/actions/itineraries";
@@ -28,6 +29,7 @@ import { TransportMode } from "@/lib/google/directions";
 import { formatDuration, formatDistance } from "@/lib/utils/formatters";
 import { getUser } from "@/app/actions/auth";
 import { User } from "@supabase/supabase-js";
+import ShareItineraryModal from "./ShareItineraryModal";
 
 interface ItineraryDrawerProps {
   pins: any[];
@@ -557,6 +559,7 @@ function SavedItineraryCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ title: itinerary.title, description: itinerary.description || "" });
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const handleUpdate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -572,6 +575,11 @@ function SavedItineraryCard({
 
   return (
     <div className="group bg-surface/40 border border-surface-border rounded-xl p-3 hover:bg-surface/60 transition-all shadow-sm">
+      <ShareItineraryModal 
+        isOpen={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)} 
+        itinerary={itinerary}
+      />
       {isEditing ? (
         <div className="space-y-3">
           <Input 
@@ -609,6 +617,7 @@ function SavedItineraryCard({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button onClick={() => setIsShareModalOpen(true)} className="p-1 hover:bg-primary/10 rounded text-muted hover:text-primary transition-colors"><Share2 className="w-3 h-3" /></button>
               <button onClick={() => setIsEditing(true)} className="p-1 hover:bg-surface-hover rounded text-muted hover:text-foreground transition-colors"><Edit3 className="w-3 h-3" /></button>
               <button onClick={onDelete} className="p-1 hover:bg-red-500/10 rounded text-muted hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
             </div>

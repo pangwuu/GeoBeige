@@ -208,6 +208,74 @@ export async function deleteItinerary(id: string) {
   return { success: true };
 }
 
+export async function toggleItineraryPrivacy(id: string, isPublic: boolean) {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+
+  if (!userData.user) return { error: "Unauthorized" };
+
+  try {
+    let slug = null;
+    if (isPublic) {
+      // Get current slug or generate new one
+      const { data: current } = await supabaseAdmin
+        .from('itineraries')
+        .select('share_slug, title')
+        .eq('id', id)
+        .single();
+
+      if (!current?.share_slug) {
+        const baseSlug = (current?.title || 'trip')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        const randomStr = Math.random().toString(36).substring(2, 7);
+        slug = `${baseSlug}-${randomStr}`;
+      } else {
+        slug = current.share_slug;
+      }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('itineraries')
+      .update({ 
+        is_public: isPublic,
+        share_slug: slug
+      })
+      .eq('id', id)
+      .eq('created_by', userData.user.id);
+
+    if (error) throw error;
+
+    revalidatePath("/");
+    return { success: true, slug };
+  } catch (error) {
+    return { error: "Failed to update sharing settings." };
+  }
+}
+
+export async function getPublicItinerary(slug: string) {
+  const { data, error } = await supabaseAdmin
+    .from('itineraries')
+    .select(`
+      *,
+      stops:itinerary_stops(
+        *,
+        pin:pins(*)
+      ),
+      legs:itinerary_legs(*)
+    `)
+    .eq('share_slug', slug)
+    .eq('is_public', true)
+    .single();
+
+  if (error || !data) {
+    return { error: "Itinerary not found or is private." };
+  }
+
+  return { success: true, itinerary: data };
+}
+
 export async function updateItinerary(id: string, updates: { title?: string; description?: string }) {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();

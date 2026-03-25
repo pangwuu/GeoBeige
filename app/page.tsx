@@ -145,7 +145,7 @@ useEffect(() => {
     setSelectedPin(null);
   };
 
-  const MAX_STOPS = 5;
+  const MAX_STOPS = 8;
 
   const handleAddStop = (pinId: string) => {
     setLoadedItineraryId(null);
