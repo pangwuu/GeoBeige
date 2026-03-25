@@ -90,7 +90,7 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
                 <p className="text-[11px] text-muted font-bold uppercase tracking-widest">{stops.length} Stops</p>
                 <div className="w-1 h-1 rounded-full bg-surface-border" />
                 <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">
-                  {formatDuration(totalDuration)} Route
+                  {formatDuration(totalDuration)} {itinerary.legs[0]?.transport_mode || 'Route'}
                 </span>
               </div>
             </div>
