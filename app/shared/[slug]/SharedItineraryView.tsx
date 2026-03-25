@@ -102,7 +102,7 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
 
         {/* Stops Section */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-          <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">The Path</h3>
+          <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">The plan</h3>
           <div className="space-y-2 relative">
             {stops.map((stop: any, idx: number) => {
               const pin = stop.pin;

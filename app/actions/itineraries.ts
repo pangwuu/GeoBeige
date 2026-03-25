@@ -298,9 +298,7 @@ export async function updateItinerary(id: string, updates: { title?: string; des
 
 export async function optimiseRoute(stopPinIds: string[]) {
   if (stopPinIds.length < 2) return { success: true, optimizedIds: stopPinIds };
-  if (stopPinIds.length > 6) return { error: "Too many stops to optimize." };
 
-  // Fetch pin coordinates
   const { data: pins, error } = await supabaseAdmin
     .from('pins')
     .select('id, location')
@@ -308,53 +306,82 @@ export async function optimiseRoute(stopPinIds: string[]) {
 
   if (error || !pins) return { error: "Failed to fetch pin locations." };
 
-  const coordsMap = new Map();
+  const coordsMap = new Map<string, { lat: number; lng: number }>();
   pins.forEach(p => {
     const c = decodePostGISPoint(p.location);
     if (c) coordsMap.set(p.id, c);
   });
 
-  // Simple Haversine distance for optimization
-  const getDistance = (p1: any, p2: any) => {
+  const haversine = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
     const R = 6371;
-    const dLat = (p2.lat - p1.lat) * Math.PI / 180;
-    const dLon = (p2.lng - p1.lng) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lng - a.lng) * Math.PI / 180;
+    const x =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
   };
 
-  // Generate all permutations
-  const getPermutations = (arr: any[]): any[][] => {
-    if (arr.length <= 1) return [arr];
-    const perms = [];
-    for (let i = 0; i < arr.length; i++) {
-      const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
-      const innerPerms = getPermutations(rest);
-      for (const p of innerPerms) {
-        perms.push([arr[i], ...p]);
+  const dist = (idA: string, idB: string) => {
+    const a = coordsMap.get(idA);
+    const b = coordsMap.get(idB);
+    return a && b ? haversine(a, b) : Infinity;
+  };
+
+  const routeDistance = (route: string[]) =>
+    route.slice(0, -1).reduce((sum, id, i) => sum + dist(id, route[i + 1]), 0);
+
+  // Nearest neighbour: start from first stop, always visit closest unvisited next.
+  // Produces a decent initial route in O(n²) rather than exploring all O(n!) paths.
+  const nearestNeighbour = (ids: string[]): string[] => {
+    const unvisited = new Set(ids);
+    const route = [ids[0]];
+    unvisited.delete(ids[0]);
+
+    while (unvisited.size > 0) {
+      const last = route[route.length - 1];
+      let nearest = '';
+      let nearestDist = Infinity;
+      for (const id of unvisited) {
+        const d = dist(last, id);
+        if (d < nearestDist) { nearestDist = d; nearest = id; }
+      }
+      route.push(nearest);
+      unvisited.delete(nearest);
+    }
+    return route;
+  };
+
+  // 2-opt: repeatedly find two edges that would be shorter if uncrossed and swap them.
+  // A swap reverses the sub-route between the two edges, removing the crossing.
+  // Repeats until no improvement is found (local optimum).
+  const twoOpt = (route: string[]): string[] => {
+    let best = [...route];
+    let improved = true;
+
+    while (improved) {
+      improved = false;
+      for (let i = 0; i < best.length - 1; i++) {
+        for (let j = i + 2; j < best.length; j++) {
+          const currentCost = dist(best[i], best[i + 1]) + dist(best[j], best[(j + 1) % best.length]);
+          const swappedCost = dist(best[i], best[j]) + dist(best[i + 1], best[(j + 1) % best.length]);
+
+          if (swappedCost < currentCost - 1e-10) {
+            best = [
+              ...best.slice(0, i + 1),
+              ...best.slice(i + 1, j + 1).reverse(),
+              ...best.slice(j + 1),
+            ];
+            improved = true;
+          }
+        }
       }
     }
-    return perms;
+    return best;
   };
 
-  const permutations = getPermutations(stopPinIds);
-  let bestOrder = stopPinIds;
-  let minDistance = Infinity;
+  const initial = nearestNeighbour(stopPinIds);
+  const optimized = twoOpt(initial);
 
-  permutations.forEach(order => {
-    let totalDist = 0;
-    for (let i = 0; i < order.length - 1; i++) {
-      const c1 = coordsMap.get(order[i]);
-      const c2 = coordsMap.get(order[i + 1]);
-      if (c1 && c2) totalDist += getDistance(c1, c2);
-    }
-    if (totalDist < minDistance) {
-      minDistance = totalDist;
-      bestOrder = order;
-    }
-  });
-
-  return { success: true, optimizedIds: bestOrder };
+  return { success: true, optimizedIds: optimized };
 }

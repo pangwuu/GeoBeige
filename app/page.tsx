@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import UnifiedSearchBar from "@/components/forms/UnifiedSearchBar";
 import { GlassCard, Badge, cn, Input } from "@/components/ui";
-import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle, CheckCircle2, Pin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deletePin, updatePin } from "@/app/actions/pins";
 import { searchPlaces } from "@/app/actions/manualPins";
@@ -320,8 +320,8 @@ useEffect(() => {
                 activeTab === 'activity' ? "bg-surface text-foreground shadow-sm border border-surface-border" : "text-muted hover:text-foreground"
               )}
             >
-              <History className="w-3.5 h-3.5" />
-              Activity
+              <Pin className="w-3.5 h-3.5" />
+              All places
             </button>
             <button 
               onClick={() => setActiveTab('itinerary')}
@@ -372,7 +372,7 @@ useEffect(() => {
                 </div>
 
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="text-[11px] font-bold uppercase text-muted tracking-widest">Recent Activity</h3>
+                  <h3 className="text-[11px] font-bold uppercase text-muted tracking-widest">All places</h3>
                   {selectedPin && (
                     <button 
                       onClick={handleDeselectPin}
