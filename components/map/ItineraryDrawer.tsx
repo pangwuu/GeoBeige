@@ -21,9 +21,10 @@ import {
   LogIn,
   MoreHorizontal,
   GripVertical,
-  Share2
+  Share2,
+  CircleX
 } from "lucide-react";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import { getAISuggestedItinerary, generateRouteData, saveItinerary, getItineraries, deleteItinerary, updateItinerary, optimiseRoute } from "@/app/actions/itineraries";
 import { TransportMode } from "@/lib/google/directions";
 import { formatDuration, formatDistance } from "@/lib/utils/formatters";
@@ -259,7 +260,7 @@ export default function ItineraryDrawer({
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-all shadow-sm shrink-0"
             title="Clear Itinerary"
           >
-            <Trash2 className="w-4 h-4" />
+            <CircleX className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -356,7 +357,7 @@ export default function ItineraryDrawer({
                 className="w-full py-3 bg-primary text-white rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 {isAiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                Plan with AI
+                Generate plan
               </button>
             </motion.div>
           ) : (
@@ -373,7 +374,7 @@ export default function ItineraryDrawer({
                 </h3>
                 {activeStops.length > 0 && (
                   <button onClick={handleClear} className="text-[10px] text-red-500 font-bold hover:underline uppercase tracking-wider">
-                    Clear All
+                    Clear All Stops
                   </button>
                 )}
               </div>
@@ -390,61 +391,14 @@ export default function ItineraryDrawer({
                     if (!pin) return null;
                     
                     return (
-                      <Reorder.Item 
-                        key={pin.id} 
-                        value={pin.id}
-                        className="group relative"
-                      >
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-surface/50 border border-surface-border group-hover:bg-surface transition-all">
-                          <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-muted transition-colors">
-                            <GripVertical className="w-4 h-4" />
-                          </div>
-                          <div className="w-6 h-6 rounded-full bg-background border border-surface-border flex items-center justify-center text-[10px] font-black text-muted group-hover:text-primary transition-colors">
-                            {idx + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-foreground truncate tracking-tight">{pin.venue_name}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] text-muted font-bold uppercase tracking-wider">{pin.city}</span>
-                              <Badge 
-                                status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : 'success')} 
-                                className={cn(
-                                  "text-[8px] px-1 py-0 h-3 flex items-center leading-none",
-                                  pin.category === 'Drinks' && "bg-purple-500/10 text-purple-500 border-purple-500/20",
-                                  pin.category === 'Other' && "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                                )}
-                              >
-                                {pin.category}
-                              </Badge>
-                            </div>
-                          </div>
-                          <button 
-                            onClick={() => onRemoveStop(pin.id)}
-                            className="p-1.5 opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        
-                        {idx < activeStops.length - 1 && (
-                          <div className="ml-10 py-1 flex items-center gap-3">
-                            <div className="h-10 border-l-2 border-dashed border-surface-border ml-[-1px] shrink-0" />
-                            
-                            {itineraryData?.legs[idx] && (
-                              <div className="flex items-center gap-2 px-3 py-1 bg-surface border border-surface-border rounded-full animate-in fade-in slide-in-from-left-2 duration-300 shadow-sm">
-                                <Clock className="w-2.5 h-2.5 text-muted" />
-                                <span className="text-[9px] font-black text-muted uppercase tracking-wider">
-                                  {formatDuration(itineraryData.legs[idx].duration_seconds)}
-                                </span>
-                                <div className="w-1 h-1 rounded-full bg-surface-border" />
-                                <span className="text-[9px] font-bold text-muted uppercase tracking-wider">
-                                  {formatDistance(itineraryData.legs[idx].distance_meters)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </Reorder.Item>
+                      <ReorderableStopItem 
+                        key={pin.id}
+                        pin={pin}
+                        idx={idx}
+                        activeStopsCount={activeStops.length}
+                        onRemoveStop={onRemoveStop}
+                        leg={itineraryData?.legs[idx]}
+                      />
                     );
                   })
                 ) : (
@@ -560,6 +514,81 @@ export default function ItineraryDrawer({
   );
 }
 
+interface ReorderableStopItemProps {
+  pin: any;
+  idx: number;
+  activeStopsCount: number;
+  onRemoveStop: (id: string) => void;
+  leg?: any;
+}
+
+function ReorderableStopItem({ pin, idx, activeStopsCount, onRemoveStop, leg }: ReorderableStopItemProps) {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item 
+      key={pin.id} 
+      value={pin.id}
+      dragListener={false}
+      dragControls={controls}
+      className="group relative"
+    >
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-surface/50 border border-surface-border group-hover:bg-surface transition-all">
+        <div 
+          onPointerDown={(e) => controls.start(e)}
+          className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-muted transition-colors p-1"
+        >
+          <GripVertical className="w-4 h-4" />
+        </div>
+        <div className="w-6 h-6 rounded-full bg-background border border-surface-border flex items-center justify-center text-[10px] font-black text-muted group-hover:text-primary transition-colors">
+          {idx + 1}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-foreground truncate tracking-tight">{pin.venue_name}</p>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-muted font-bold uppercase tracking-wider">{pin.city}</span>
+            <Badge 
+              status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : 'success')} 
+              className={cn(
+                "text-[8px] px-1 py-0 h-3 flex items-center leading-none",
+                pin.category === 'Drinks' && "bg-purple-500/10 text-purple-500 border-purple-500/20",
+                pin.category === 'Other' && "bg-blue-500/10 text-blue-500 border-blue-500/20"
+              )}
+            >
+              {pin.category}
+            </Badge>
+          </div>
+        </div>
+        <button 
+          onClick={() => onRemoveStop(pin.id)}
+          className="p-1.5 opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      
+      {idx < activeStopsCount - 1 && (
+        <div className="ml-10 py-1 flex items-center gap-3">
+          <div className="h-10 border-l-2 border-dashed border-surface-border ml-[-1px] shrink-0" />
+          
+          {leg && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-surface border border-surface-border rounded-full animate-in fade-in slide-in-from-left-2 duration-300 shadow-sm">
+              <Clock className="w-2.5 h-2.5 text-muted" />
+              <span className="text-[9px] font-black text-muted uppercase tracking-wider">
+                {formatDuration(leg.duration_seconds)}
+              </span>
+              <div className="w-1 h-1 rounded-full bg-surface-border" />
+              <span className="text-[9px] font-bold text-muted uppercase tracking-wider">
+                {formatDistance(leg.distance_meters)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </Reorder.Item>
+  );
+}
+
 function SavedItineraryCard({ 
   itinerary, 
   onDelete, 
@@ -640,21 +669,21 @@ function SavedItineraryCard({
             </div>
           </div>
           
-          <div className="space-y-1 mb-4 relative pl-3">
-            <div className="absolute left-0 top-1 bottom-1 w-[1.5px] border-l border-dashed border-surface-border" />
+          <div className="space-y-2 mb-4 relative">
             
             {itinerary.stops.sort((a: any, b: any) => a.stop_order - b.stop_order).map((s: any, idx: number) => {
               const category = s.pin?.category;
               const isFood = category === 'Food';
               const isDrinks = category === 'Drinks';
               const isOther = category === 'Other';
-              const leg = itinerary.legs?.find((l: any) => l.from_pin_id === s.pin_id);
+              // Fix: use from_stop_id for database-fetched legs
+              const leg = itinerary.legs?.find((l: any) => l.from_stop_id === s.id);
               
               return (
-                <div key={s.id} className="space-y-1">
+                <div key={s.id} className="space-y-1 relative">
                   <div className="flex items-center gap-2 group/stop">
                     <div className={cn(
-                      "flex items-center justify-center w-4 h-4 rounded-md border shrink-0",
+                      "flex items-center justify-center w-4 h-4 rounded-md border shrink-0 bg-background",
                       isFood ? "border-amber-500/30 bg-amber-500/10 text-amber-500" : 
                       isDrinks ? "border-purple-500/30 bg-purple-500/10 text-purple-500" : 
                       isOther ? "border-blue-500/30 bg-blue-500/10 text-blue-500" :
@@ -671,10 +700,14 @@ function SavedItineraryCard({
                   </div>
                   
                   {leg && idx < itinerary.stops.length - 1 && (
-                    <div className="flex items-center gap-1.5 ml-0.5 py-0.5">
-                      <Clock className="w-2 h-2 text-muted/50" />
+                    <div className="flex items-center gap-1.5 ml-6 py-0.5 opacity-60">
+                      <Clock className="w-2 h-2 text-muted" />
                       <span className="text-[8px] font-black text-muted uppercase tracking-tighter">
                         {formatDuration(leg.duration_seconds)}
+                      </span>
+                      <span className="text-[8px] text-muted/50">•</span>
+                      <span className="text-[8px] font-bold text-muted uppercase tracking-tighter">
+                        {formatDistance(leg.distance_meters)}
                       </span>
                     </div>
                   )}

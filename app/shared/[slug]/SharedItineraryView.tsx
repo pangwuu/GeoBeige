@@ -16,7 +16,7 @@ import {
   Loader2
 } from "lucide-react";
 import { GlassCard, Badge, cn } from "@/components/ui";
-import { formatDuration } from "@/lib/utils/formatters";
+import { formatDuration, formatDistance } from "@/lib/utils/formatters";
 
 // Dynamically import the map to avoid SSR issues with Leaflet
 const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
@@ -100,38 +100,38 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
           </div>
         </div>
 
-        {/* Stops Section */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
           <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">The plan</h3>
-          <div className="space-y-2 relative">
+          <div className="space-y-4 relative">
+            
             {stops.map((stop: any, idx: number) => {
               const pin = stop.pin;
-              const leg = itinerary.legs.find((l: any) => l.from_pin_id === pin.id);
+              const leg = itinerary.legs.find((l: any) => l.from_stop_id === stop.id);
               const isFood = pin.category === 'Food';
               const isDrinks = pin.category === 'Drinks';
               const isOther = pin.category === 'Other';
               const isActive = selectedPin?.id === pin.id;
 
               return (
-                <div key={stop.id} className="space-y-4">
+                <div key={stop.id} className="relative">
                   <motion.div 
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.1 }}
                     onClick={() => setSelectedPin(pin)}
                     className={cn(
-                      "group relative flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer",
+                      "group relative flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer mb-2",
                       isActive 
-                        ? "bg-surface border-primary/50 shadow-lg shadow-primary/5 scale-[1.02]" 
-                        : "border-surface-border bg-surface/40 hover:bg-surface/60"
+                        ? "bg-surface border-primary/50 shadow-lg shadow-primary/5 scale-[1.02] z-20" 
+                        : "border-surface-border bg-surface/40 hover:bg-surface/60 z-10"
                     )}
                   >
                     <div className={cn(
-                      "flex items-center justify-center w-12 h-12 rounded-xl border shrink-0 z-10",
-                      isFood ? "border-amber-500/30 bg-amber-500/10 text-amber-500" : 
-                      isDrinks ? "border-purple-500/30 bg-purple-500/10 text-purple-500" : 
-                      isOther ? "border-blue-500/30 bg-blue-500/10 text-blue-500" :
-                      "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                      "flex items-center justify-center w-12 h-12 rounded-xl border shrink-0 bg-background",
+                      isFood ? "border-amber-500/30 text-amber-500" : 
+                      isDrinks ? "border-purple-500/30 text-purple-500" : 
+                      isOther ? "border-blue-500/30 text-blue-500" :
+                      "border-emerald-500/30 text-emerald-500"
                     )}>
                       {isFood ? <Utensils className="w-5 h-5" /> : 
                        isDrinks ? <Beer className="w-5 h-5" /> : 
@@ -166,14 +166,18 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
                   </motion.div>
 
                   {leg && idx < stops.length - 1 && (
-                    <div className="flex items-center gap-3 ml-16 py-1">
-                      <div className="flex items-center gap-1.5 px-3 py-1 bg-surface/50 border border-surface-border rounded-full shadow-sm">
+                    <div className="flex items-center gap-3 py-2">
+                      <div className="flex items-center gap-2 px-3 py-1 bg-surface border border-surface-border rounded-full shadow-sm ml-12">
                         <Clock className="w-2.5 h-2.5 text-muted/50" />
                         <span className="text-[9px] font-black text-muted uppercase tracking-widest whitespace-nowrap">
                           {formatDuration(leg.duration_seconds)}
                         </span>
                         <div className="w-1 h-1 rounded-full bg-surface-border" />
                         <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
+                           {formatDistance(leg.distance_meters)}
+                        </span>
+                        <div className="w-1 h-1 rounded-full bg-surface-border" />
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-widest opacity-60">
                            {leg.transport_mode || 'Transit'}
                         </span>
                       </div>
