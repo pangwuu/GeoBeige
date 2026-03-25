@@ -13,13 +13,27 @@ export const processVideoWorkflow = inngest.createFunction(
   { 
     id: "process-video",
     // @ts-ignore
-    triggers: { event: "video/submitted" } 
+    triggers: { event: "video/submitted" },
+    onFailure: async ({ event, error, step }) => {
+      const { pinId } = event.data.event.data; // Original event data is nested in onFailure
+      if (pinId) {
+        await supabaseAdmin
+          .from('pins')
+          .update({ 
+            status: 'failed',
+            venue_name: 'Analysis Failed',
+            summary: `We encountered an error processing this video: ${error.message || 'Unknown error'}. You can try deleting this pin and submitting the link again.`
+          })
+          .eq('id', pinId);
+      }
+    }
   },
   async ({ event, step }) => {
     const { url, pinId } = event.data;
 
-    // 1. Scrape Video Metadata (Instagram or TikTok)
-    const metadata = await step.run("scrape-video", async () => {
+    try {
+      // 1. Scrape Video Metadata (Instagram or TikTok)
+      const metadata = await step.run("scrape-video", async () => {
       
       const isTikTok = url.includes("tiktok.com");
       const isInstagram = url.includes("instagram.com");
@@ -173,5 +187,19 @@ return {
     });
 
     return { success: true, extraction };
+    } catch (error: any) {
+      // Mark as failed immediately if we catch a non-retryable or caught error
+      if (pinId) {
+        await supabaseAdmin
+          .from('pins')
+          .update({ 
+            status: 'failed',
+            venue_name: 'Analysis Failed',
+            summary: `Analysis stopped: ${error.message || 'Unknown processing error'}.`
+          })
+          .eq('id', pinId);
+      }
+      throw error; // Re-throw to allow Inngest retries if appropriate
+    }
   }
 );
