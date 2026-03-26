@@ -536,6 +536,7 @@ function ActivityCard({
         category: pin.category || "Activity",
         city: pin.city || "",
         suggested_dwell_time: pin.suggested_dwell_time || 60,
+        source_url: pin.source_url || "",
         lat: 0,
         lng: 0
       });
@@ -548,6 +549,7 @@ function ActivityCard({
     category: pin.category || "Activity",
     city: pin.city || "",
     suggested_dwell_time: pin.suggested_dwell_time || 60,
+    source_url: pin.source_url || "",
     lat: 0,
     lng: 0
   });
@@ -577,7 +579,8 @@ function ActivityCard({
       venue_name: result.text,
       city: result.place_name.split(',')[0].trim(),
       lat: result.center[1],
-      lng: result.center[0]
+      lng: result.center[0],
+      source_url: result.google_place_link
     });
     setLocationResults([]);
     setLocationSearch("");
@@ -605,6 +608,7 @@ function ActivityCard({
       category: pin.category || "Activity",
       city: pin.city || "",
       suggested_dwell_time: pin.suggested_dwell_time || 60,
+      source_url: pin.source_url || "",
       lat: 0,
       lng: 0
     });
@@ -627,6 +631,7 @@ function ActivityCard({
       category: editForm.category,
       city: editForm.city,
       suggested_dwell_time: editForm.suggested_dwell_time,
+      source_url: editForm.source_url,
       status: 'completed'
     };
 

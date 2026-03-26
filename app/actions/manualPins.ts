@@ -26,6 +26,7 @@ export async function searchPlaces(query: string) {
         text: place.name,
         place_name: place.formatted_address,
         center: [place.geometry.location.lng, place.geometry.location.lat],
+        google_place_link: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
         category: place.types?.some((t: string) => ['bar', 'pub', 'liquor_store', 'night_club', 'winery'].includes(t)) ? 'Drinks' : 
                   (place.types?.some((t: string) => ['restaurant', 'cafe', 'food', 'bakery', 'meal_takeaway'].includes(t)) ? 'Food' : 
                   (place.types?.some((t: string) => ['tourist_attraction', 'park', 'museum', 'amusement_park', 'gym'].includes(t)) ? 'Activity' : 'Other'))
@@ -45,6 +46,7 @@ export async function addManualPin(data: {
   lat: number;
   category: string;
   summary?: string;
+  source_url?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -67,6 +69,7 @@ export async function addManualPin(data: {
       category: validatedCategory,
       user_id: user.id, // Explicitly associate with the user
       location: `POINT(${data.lng} ${data.lat})`,
+      source_url: data.source_url,
       status: 'completed'
     }).select();
 

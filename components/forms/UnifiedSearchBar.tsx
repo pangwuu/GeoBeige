@@ -114,7 +114,8 @@ export default function UnifiedSearchBar({ user }: { user: User | null }) {
         lng: place.center[0],
         lat: place.center[1],
         category: category,
-        summary: manualDescriptions[place.id]
+        summary: manualDescriptions[place.id],
+        source_url: place.google_place_link
       });
       
       if (result.success) {
