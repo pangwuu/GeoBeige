@@ -112,6 +112,10 @@ export async function updatePin(id: string, updates: {
   venue_name?: string;
   summary?: string;
   category?: string;
+  city?: string;
+  location?: string;
+  status?: string;
+  suggested_dwell_time?: number;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

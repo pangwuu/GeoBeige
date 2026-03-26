@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import UnifiedSearchBar from "@/components/forms/UnifiedSearchBar";
 import { GlassCard, Badge, cn, Input } from "@/components/ui";
-import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle, CheckCircle2, Pin } from "lucide-react";
+import { Compass, History, Share2, LogIn, Search, Loader2, Trash2, X, ChevronUp, Edit3, Save, Utensils, MapPinned, Beer, MoreHorizontal, AlertCircle, CheckCircle2, Pin, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deletePin, updatePin } from "@/app/actions/pins";
 import { searchPlaces } from "@/app/actions/manualPins";
@@ -38,6 +38,7 @@ export default function Home() {
   const [pinSearch, setPinSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'Food' | 'Drinks' | 'Activity' | 'Other'>('all');
   const [selectedPin, setSelectedPin] = useState<any | null>(null);
+  const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeItineraryStops, setActiveItineraryStops] = useState<string[]>([]);
   const [itineraryLegs, setItineraryLegs] = useState<any[]>([]);
@@ -196,9 +197,9 @@ useEffect(() => {
 
   const handleEditPin = (pin: any) => {
     setSelectedPin(pin);
+    setEditingPinId(pin.id);
     setActiveTab('activity');
     setIsSidebarOpen(true);
-    // Note: The ActivityCard will detect if the selectedPin matches and we can scroll to it
   };
 
   return (
@@ -394,11 +395,20 @@ useEffect(() => {
                       <ActivityCard 
                         key={pin.id}
                         pin={pin}
-                        onClick={() => handleSelectPin(pin)}
+                        onClick={() => {
+                          handleSelectPin(pin);
+                          setEditingPinId(null);
+                        }}
                         active={selectedPin?.id === pin.id}
                         onAddStop={handleAddStop}
                         isInItinerary={activeItineraryStops.includes(pin.id)}
-                        onDeselect={handleDeselectPin}
+                        onDeselect={() => {
+                          handleDeselectPin();
+                          setEditingPinId(null);
+                        }}
+                        isEditingExternal={editingPinId === pin.id}
+                        onEditStarted={() => setEditingPinId(pin.id)}
+                        onEditFinished={() => setEditingPinId(null)}
                       />
                     ))
                   ) : (
@@ -490,18 +500,65 @@ useEffect(() => {
   );
 }
 
-function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDeselect }: { pin: any, onClick?: () => void, active?: boolean, onAddStop?: (id: string) => void, isInItinerary?: boolean, onDeselect?: () => void }) {
+function ActivityCard({ 
+  pin, 
+  onClick, 
+  active, 
+  onAddStop, 
+  isInItinerary, 
+  onDeselect,
+  isEditingExternal,
+  onEditStarted,
+  onEditFinished
+}: { 
+  pin: any, 
+  onClick?: () => void, 
+  active?: boolean, 
+  onAddStop?: (id: string) => void, 
+  isInItinerary?: boolean, 
+  onDeselect?: () => void,
+  isEditingExternal?: boolean,
+  onEditStarted?: () => void,
+  onEditFinished?: () => void
+}) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync with external edit state
+  useEffect(() => {
+    if (isEditingExternal) {
+      setIsEditing(true);
+      setEditForm({
+        venue_name: pin.venue_name || "",
+        summary: pin.summary || "",
+        category: pin.category || "Activity",
+        city: pin.city || "",
+        suggested_dwell_time: pin.suggested_dwell_time || 60,
+        lat: 0,
+        lng: 0
+      });
+    }
+  }, [isEditingExternal, pin]);
+
   const [editForm, setEditForm] = useState({
     venue_name: pin.venue_name || "",
     summary: pin.summary || "",
     category: pin.category || "Activity",
     city: pin.city || "",
+    suggested_dwell_time: pin.suggested_dwell_time || 60,
     lat: 0,
     lng: 0
   });
+
+  // Auto-scroll into view when active
+  useEffect(() => {
+    if (active && scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [active]);
+
   const [locationSearch, setLocationSearch] = useState("");
   const [locationResults, setLocationResults] = useState<any[]>([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
@@ -541,11 +598,13 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsEditing(true);
+    onEditStarted?.();
     setEditForm({
       venue_name: pin.venue_name || "",
       summary: pin.summary || "",
       category: pin.category || "Activity",
       city: pin.city || "",
+      suggested_dwell_time: pin.suggested_dwell_time || 60,
       lat: 0,
       lng: 0
     });
@@ -554,6 +613,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsEditing(false);
+    onEditFinished?.();
     setLocationResults([]);
   };
 
@@ -566,6 +626,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
       summary: editForm.summary,
       category: editForm.category,
       city: editForm.city,
+      suggested_dwell_time: editForm.suggested_dwell_time,
       status: 'completed'
     };
 
@@ -576,6 +637,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
     const result = await updatePin(pin.id, updates);
     if (result.success) {
       setIsEditing(false);
+      onEditFinished?.();
     } else {
       alert(result.error || "Failed to update pin");
     }
@@ -584,7 +646,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
 
   if (isEditing) {
     return (
-      <div className="p-3 rounded-xl border border-primary/30 bg-background shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
+      <div className="p-3 rounded-xl border border-primary/30 bg-background shadow-xl space-y-3" onClick={e => e.stopPropagation()} ref={scrollRef}>
         <div className="space-y-1">
           <label className="text-[10px] font-bold text-muted uppercase">Correct Location</label>
           <div className="flex gap-2">
@@ -620,58 +682,52 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
           )}
         </div>
 
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-muted uppercase">Venue Name</label>
-          <Input 
-            value={editForm.venue_name}
-            onChange={(e) => setEditForm({ ...editForm, venue_name: e.target.value })}
-            className="h-8 py-1 text-xs"
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted uppercase">Venue Name</label>
+            <Input 
+              value={editForm.venue_name}
+              onChange={(e) => setEditForm({ ...editForm, venue_name: e.target.value })}
+              className="h-8 py-1 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted uppercase">Stay Duration (min)</label>
+            <div className="relative">
+              <Input 
+                type="number"
+                value={editForm.suggested_dwell_time}
+                onChange={(e) => setEditForm({ ...editForm, suggested_dwell_time: parseInt(e.target.value) || 0 })}
+                className="h-8 py-1 pr-8 text-xs font-black"
+              />
+              <Clock className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted" />
+            </div>
+          </div>
         </div>
 
         <div className="space-y-1">
           <label className="text-[10px] font-bold text-muted uppercase">Category</label>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setEditForm({ ...editForm, category: 'Food' })}
-              className={cn(
-                "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Food' ? "bg-amber-500/10 text-amber-500 border-amber-500/30" : "bg-background text-muted border-surface-border"
-              )}
-            >
-              <Utensils className="w-3 h-3" />
-              Food
-            </button>
-            <button 
-              onClick={() => setEditForm({ ...editForm, category: 'Drinks' })}
-              className={cn(
-                "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Drinks' ? "bg-purple-500/10 text-purple-500 border-purple-500/30" : "bg-background text-muted border-surface-border"
-              )}
-            >
-              <Beer className="w-3 h-3" />
-              Drinks
-            </button>
-            <button 
-              onClick={() => setEditForm({ ...editForm, category: 'Activity' })}
-              className={cn(
-                "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Activity' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" : "bg-background text-muted border-surface-border"
-              )}
-            >
-              <Compass className="w-3 h-3" />
-              Activity
-            </button>
-            <button 
-              onClick={() => setEditForm({ ...editForm, category: 'Other' })}
-              className={cn(
-                "flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1.5",
-                editForm.category === 'Other' ? "bg-blue-500/10 text-blue-500 border-blue-500/30" : "bg-background text-muted border-surface-border"
-              )}
-            >
-              <MoreHorizontal className="w-3 h-3" />
-              Other
-            </button>
+          <div className="flex gap-1">
+            {(['Food', 'Drinks', 'Activity', 'Other'] as const).map((cat) => {
+              const Icon = cat === 'Food' ? Utensils : (cat === 'Drinks' ? Beer : (cat === 'Activity' ? Compass : MoreHorizontal));
+              const colorClass = cat === 'Food' ? "amber" : (cat === 'Drinks' ? "purple" : (cat === 'Activity' ? "emerald" : "blue"));
+              
+              return (
+                <button 
+                  key={cat}
+                  onClick={() => setEditForm({ ...editForm, category: cat })}
+                  className={cn(
+                    "flex-1 py-1 rounded-lg text-[9px] font-black border transition-all flex flex-col items-center justify-center gap-0.5",
+                    editForm.category === cat 
+                      ? `bg-${colorClass}-500/10 text-${colorClass}-500 border-${colorClass}-500/30` 
+                      : "bg-background text-muted border-surface-border"
+                  )}
+                >
+                  <Icon className="w-3 h-3" />
+                  {cat}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -708,6 +764,7 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
 
   return (
     <div 
+      ref={scrollRef}
       onClick={onClick}
       className={cn(
         "group relative p-3 rounded-xl border transition-all cursor-pointer",
@@ -718,10 +775,18 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
     >
       <div className="flex justify-between items-start mb-1.5">
         <div className="flex flex-col min-w-0">
-          <span className={cn(
-            "font-bold text-sm transition-colors pr-2 truncate", 
-            active ? "text-foreground" : "text-foreground group-hover:text-primary transition-colors"
-          )}>{title}</span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "font-bold text-sm transition-colors truncate", 
+              active ? "text-foreground" : "text-foreground group-hover:text-primary transition-colors"
+            )}>{title}</span>
+            <div className="flex items-center gap-1 shrink-0 bg-background/50 border border-surface-border rounded-md px-1.5 py-0.5">
+               <Clock className="w-2.5 h-2.5 text-muted" />
+               <span className="text-[9px] font-black text-muted uppercase tracking-tighter">
+                 {pin.suggested_dwell_time || 60}m
+               </span>
+            </div>
+          </div>
           {pin.status === 'failed' && (
             <div className="flex items-center gap-1 text-[9px] font-black text-amber-500 uppercase tracking-wider">
               <AlertCircle className="w-2.5 h-2.5" />
@@ -791,3 +856,4 @@ function ActivityCard({ pin, onClick, active, onAddStop, isInItinerary, onDesele
     </div>
   );
 }
+

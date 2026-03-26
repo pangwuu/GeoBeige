@@ -78,15 +78,12 @@ export default function ItineraryDrawer({
   const [listSearch, setListSearch] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Per-itinerary traveller type (defaults to user preference if available)
+  // Per-itinerary traveller type
   const [activeTravellerType, setActiveTravellerType] = useState<'fast' | 'typical' | 'slow'>('typical');
   const [showTotalWithStay, setShowTotalWithStay] = useState(true);
 
-  useEffect(() => {
-    if (user?.user_metadata?.traveller_type) {
-      setActiveTravellerType(user.user_metadata.traveller_type);
-    }
-  }, [user]);
+  // We've moved traveller type to be per-itinerary. 
+  // Initial state is typical, which can be changed by the user.
 
   // Dwell times state: pinId -> minutes
   const [stopDwellTimes, setStopDwellTimes] = useState<Record<string, number>>({});

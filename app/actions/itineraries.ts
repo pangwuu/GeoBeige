@@ -123,15 +123,23 @@ export async function saveItinerary(itinerary: {
     const { data: newStops, error: stopsError } = await supabaseAdmin
       .from('itinerary_stops')
       .insert(stopInserts)
-      .select();
+      .select()
+      .order('stop_order', { ascending: true });
 
-    if (stopsError) throw new Error("Failed to link locations to your itinerary.");
+    if (stopsError) {
+      throw new Error(`Failed to link locations: ${stopsError.message}`);
+    }
 
     // 3. Create Legs
-    const legInserts = itinerary.legs.map((leg) => {
-      const fromStop = newStops.find(s => s.pin_id === leg.from_pin_id);
-      const toStop = newStops.find(s => s.pin_id === leg.to_pin_id);
+    const legInserts = itinerary.legs.map((leg, index) => {
+      // The i-th leg always connects the i-th stop to the (i+1)-th stop
+      const fromStop = newStops[index];
+      const toStop = newStops[index + 1];
       
+      if (!fromStop || !toStop) {
+        throw new Error(`Invalid leg mapping: could not find stops for leg ${index + 1}`);
+      }
+
       // Ensure transport mode is lowercase to match database CHECK constraint
       const rawMode = (leg.mode || 'transit').toLowerCase();
       const dbMode = rawMode === 'walk' ? 'walking' : 
@@ -153,7 +161,9 @@ export async function saveItinerary(itinerary: {
       .from('itinerary_legs')
       .insert(legInserts);
 
-    if (legsError) throw new Error("Failed to save the route timing between stops.");
+    if (legsError) {
+      throw new Error(`Failed to save route: ${legsError.message}`);
+    }
 
     revalidatePath("/");
     return { success: true, itineraryId: newItinerary.id };

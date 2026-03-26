@@ -6,7 +6,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge, cn } from "@/components/ui";
-import { ExternalLink, Utensils, Compass, Plus, Minus, Beer, Footprints, Bus, Car, Bike, MoreHorizontal, Edit3, Trash2 } from "lucide-react";
+import { ExternalLink, Utensils, Compass, Plus, Minus, Beer, Footprints, Bus, Car, Bike, MoreHorizontal, Edit3, Trash2, Clock } from "lucide-react";
 import { renderToString } from "react-dom/server";
 import { decodePostGISPoint } from "@/lib/utils/postgis";
 import { formatDuration } from "@/lib/utils/formatters";
@@ -362,6 +362,12 @@ export default function LeafletMap({
                           >
                             {pin.category || 'Pending'}
                           </Badge>
+                          <div className="inline-flex items-center gap-1 ml-2 bg-background/50 border border-surface-border rounded-md px-1.5 py-0.5">
+                            <Clock className="w-2.5 h-2.5 text-muted" />
+                            <span className="text-[9px] font-black text-muted uppercase tracking-tighter">
+                              {pin.suggested_dwell_time || 60}m stay
+                            </span>
+                          </div>
                         </div>
                       </div>
 
