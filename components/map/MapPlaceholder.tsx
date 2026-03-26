@@ -1,4 +1,3 @@
-import React from 'react';
 import { Compass, Loader2 } from 'lucide-react';
 
 export default function MapPlaceholder() {

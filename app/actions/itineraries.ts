@@ -83,6 +83,7 @@ export async function generateRouteData(stopPinIds: string[], transportMode: Tra
 export async function saveItinerary(itinerary: {
   title: string;
   description?: string;
+  traveller_type?: 'fast' | 'typical' | 'slow';
   stops: { pinId: string; dwell_time_minutes: number; notes?: string }[];
   legs: { from_pin_id: string; to_pin_id: string; polyline: string; duration_seconds: number; distance_meters: number; mode: TransportMode }[];
 }) {
@@ -102,6 +103,7 @@ export async function saveItinerary(itinerary: {
       .insert({
         title: itinerary.title,
         description: itinerary.description,
+        traveller_type: itinerary.traveller_type || 'typical',
         created_by: userId
       })
       .select()
@@ -276,7 +278,7 @@ export async function getPublicItinerary(slug: string) {
   return { success: true, itinerary: data };
 }
 
-export async function updateItinerary(id: string, updates: { title?: string; description?: string }) {
+export async function updateItinerary(id: string, updates: { title?: string; description?: string; traveller_type?: 'fast' | 'typical' | 'slow' }) {
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
 

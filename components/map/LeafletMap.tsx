@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Tooltip, LayerGroup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, LayerGroup } from "react-leaflet";
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { createClient } from "@/lib/supabase/client";
-import { Badge, GlassCard, cn } from "@/components/ui";
-import { ExternalLink, Utensils, Compass, Plus, Minus, Beer, Clock, Footprints, Bus, Car, Bike, MoreHorizontal, Edit3, Trash2 } from "lucide-react";
+import { Badge, cn } from "@/components/ui";
+import { ExternalLink, Utensils, Compass, Plus, Minus, Beer, Footprints, Bus, Car, Bike, MoreHorizontal, Edit3, Trash2 } from "lucide-react";
 import { renderToString } from "react-dom/server";
 import { decodePostGISPoint } from "@/lib/utils/postgis";
 import { formatDuration } from "@/lib/utils/formatters";

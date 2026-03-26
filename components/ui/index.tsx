@@ -119,7 +119,7 @@ export const Badge = ({ children, status = 'default', className = "" }: { childr
   };
   return (
     <span className={cn(
-      "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border",
+      "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border",
       styles[status],
       className
     )}>

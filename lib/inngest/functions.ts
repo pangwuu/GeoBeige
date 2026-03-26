@@ -152,6 +152,7 @@ return {
         city: extraction.locationContext, // Suburb + City info
         summary: extraction.summary,
         category: validatedCategory,
+        suggested_dwell_time: extraction.suggestedDwellTime,
         source_url: url,
         // @ts-ignore
         location: `POINT(${coords.lng} ${coords.lat})`,

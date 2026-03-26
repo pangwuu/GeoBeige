@@ -72,3 +72,18 @@ export async function getUser() {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 }
+
+export async function updateUserTravellerType(type: 'fast' | 'typical' | 'slow') {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({
+    data: { traveller_type: type }
+  });
+
+  if (error) {
+    console.error("Update User Metadata Error:", error.message);
+    return { error: error.message };
+  }
+
+  revalidatePath("/");
+  return { success: true };
+}

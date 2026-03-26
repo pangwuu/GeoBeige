@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { GlassCard, Badge, cn, Input } from "@/components/ui";
+import { Badge, cn, Input } from "@/components/ui";
 import { 
   AlertCircle,
   Sparkles, 
@@ -26,9 +26,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 import { getAISuggestedItinerary, generateRouteData, saveItinerary, getItineraries, deleteItinerary, updateItinerary, optimiseRoute } from "@/app/actions/itineraries";
+import { updateUserTravellerType } from "@/app/actions/auth";
 import { TransportMode } from "@/lib/google/directions";
 import { formatDuration, formatDistance } from "@/lib/utils/formatters";
-import { getUser } from "@/app/actions/auth";
 import { User } from "@supabase/supabase-js";
 import ShareItineraryModal from "./ShareItineraryModal";
 
@@ -78,7 +78,61 @@ export default function ItineraryDrawer({
   const [listSearch, setListSearch] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Per-itinerary traveller type (defaults to user preference if available)
+  const [activeTravellerType, setActiveTravellerType] = useState<'fast' | 'typical' | 'slow'>('typical');
+  const [showTotalWithStay, setShowTotalWithStay] = useState(true);
+
+  useEffect(() => {
+    if (user?.user_metadata?.traveller_type) {
+      setActiveTravellerType(user.user_metadata.traveller_type);
+    }
+  }, [user]);
+
+  // Dwell times state: pinId -> minutes
+  const [stopDwellTimes, setStopDwellTimes] = useState<Record<string, number>>({});
+
+  const dwellMultiplier = activeTravellerType === 'fast' ? 0.8 : activeTravellerType === 'slow' ? 1.2 : 1.0;
+
+  const handleUpdateTravellerType = (type: 'fast' | 'typical' | 'slow') => {
+    const oldMultiplier = dwellMultiplier;
+    setActiveTravellerType(type);
+    
+    // Recalculate all existing dwell times based on the new multiplier ratio
+    const newMultiplier = type === 'fast' ? 0.8 : type === 'slow' ? 1.2 : 1.0;
+    const ratio = newMultiplier / oldMultiplier;
+    
+    setStopDwellTimes(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(id => {
+        next[id] = Math.round((next[id] * ratio) / 5) * 5;
+      });
+      return next;
+    });
+  };
+
+  // Update dwell times when pins are added
+  useEffect(() => {
+    setStopDwellTimes(prev => {
+      const next = { ...prev };
+      let changed = false;
+      activeStops.forEach(id => {
+        if (next[id] === undefined) {
+          const pin = pins.find(p => p.id === id);
+          const suggested = pin?.suggested_dwell_time || 60;
+          // Apply multiplier and round to nearest 5 mins
+          next[id] = Math.round((suggested * dwellMultiplier) / 5) * 5;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [activeStops, pins, dwellMultiplier]);
+
   const selectedPins = activeStops.map(id => pins.find(p => p.id === id)).filter(Boolean);
+
+  const totalTravelTime = itineraryData?.legs?.reduce((acc, l) => acc + (l.duration_seconds || 0), 0) || 0;
+  const totalDwellTime = activeStops.reduce((acc, id) => acc + (stopDwellTimes[id] || 0) * 60, 0);
+  const totalDuration = totalTravelTime + totalDwellTime;
 
   // Clear legs if the stops order or count changes to avoid showing stale data
   useEffect(() => {
@@ -133,9 +187,13 @@ export default function ItineraryDrawer({
     const result = await getAISuggestedItinerary(aiPrompt);
     if (result.success && result.suggestion) {
       handleClear();
+      const newDwellTimes: Record<string, number> = {};
       result.suggestion.stops.forEach((stop: any) => {
         onAddStop(stop.pinId);
+        newDwellTimes[stop.pinId] = stop.dwell_time_minutes || 60;
       });
+      
+      setStopDwellTimes(prev => ({ ...prev, ...newDwellTimes }));
       
       setItineraryData({
         title: result.suggestion.title,
@@ -190,7 +248,8 @@ export default function ItineraryDrawer({
     const result = await saveItinerary({
       title: itineraryData.title,
       description: itineraryData.description,
-      stops: activeStops.map(id => ({ pinId: id, dwell_time_minutes: 60 })),
+      traveller_type: activeTravellerType,
+      stops: activeStops.map(id => ({ pinId: id, dwell_time_minutes: stopDwellTimes[id] || 60 })),
       legs: itineraryData.legs.map(leg => ({
         from_pin_id: leg.from_pin_id,
         to_pin_id: leg.to_pin_id,
@@ -311,7 +370,13 @@ export default function ItineraryDrawer({
                         onDelete={() => handleDeleteItinerary(itin.id)}
                         onLoad={() => {
                           onClear();
-                          itin.stops.sort((a: any, b: any) => a.stop_order - b.stop_order).forEach((s: any) => onAddStop(s.pin_id));
+                          const newDwellTimes: Record<string, number> = {};
+                          itin.stops.sort((a: any, b: any) => a.stop_order - b.stop_order).forEach((s: any) => {
+                            onAddStop(s.pin_id);
+                            newDwellTimes[s.pin_id] = s.dwell_time_minutes || 60;
+                          });
+                          setStopDwellTimes(newDwellTimes);
+                          setActiveTravellerType(itin.traveller_type || 'typical');
                           onRoutesGenerated(itin.legs);
                           setLoadedItineraryId(itin.id);
                           setMode('manual');
@@ -397,6 +462,8 @@ export default function ItineraryDrawer({
                         idx={idx}
                         activeStopsCount={activeStops.length}
                         onRemoveStop={onRemoveStop}
+                        dwellTime={stopDwellTimes[pin.id] || 60}
+                        onDwellTimeChange={(val) => setStopDwellTimes(prev => ({ ...prev, [pin.id]: val }))}
                         leg={itineraryData?.legs[idx]}
                       />
                     );
@@ -433,8 +500,19 @@ export default function ItineraryDrawer({
                       {itineraryData?.legs.length && transportMode === calculatedMode ? (
                          <div className="flex items-center gap-2">
                             <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">
-                              Total: {formatDuration(itineraryData.legs.reduce((acc, l) => acc + (l.duration_seconds || 0), 0))}
+                              Total: {formatDuration(showTotalWithStay ? totalDuration : totalTravelTime)}
                             </span>
+                            <button 
+                              onClick={() => setShowTotalWithStay(!showTotalWithStay)}
+                              className={cn(
+                                "text-[7px] px-1.5 py-0.5 h-4 flex items-center justify-center rounded-full border transition-all",
+                                showTotalWithStay 
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                                  : "bg-surface text-muted border-surface-border hover:text-foreground"
+                              )}
+                            >
+                              {showTotalWithStay ? "Incl. Stay" : "Transit Only"}
+                            </button>
                          </div>
                       ) : null}
                     </div>
@@ -451,6 +529,29 @@ export default function ItineraryDrawer({
                           )}
                         >
                           {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-muted uppercase tracking-widest flex items-center justify-between">
+                      Itinerary Pace
+                      <span className="text-[8px] opacity-60 font-bold">(Adjusts dwell times)</span>
+                    </label>
+                    <div className="flex gap-2">
+                      {(['fast', 'typical', 'slow'] as const).map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => handleUpdateTravellerType(type)}
+                          className={cn(
+                            "flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all",
+                            activeTravellerType === type 
+                              ? "bg-amber-500/10 text-amber-500 border-amber-500/30" 
+                              : "bg-background text-muted border-surface-border hover:border-muted/50"
+                          )}
+                        >
+                          {type}
                         </button>
                       ))}
                     </div>
@@ -519,11 +620,32 @@ interface ReorderableStopItemProps {
   idx: number;
   activeStopsCount: number;
   onRemoveStop: (id: string) => void;
+  dwellTime: number;
+  onDwellTimeChange: (val: number) => void;
   leg?: any;
 }
 
-function ReorderableStopItem({ pin, idx, activeStopsCount, onRemoveStop, leg }: ReorderableStopItemProps) {
+function ReorderableStopItem({ pin, idx, activeStopsCount, onRemoveStop, dwellTime, onDwellTimeChange, leg }: ReorderableStopItemProps) {
   const controls = useDragControls();
+  const [inputValue, setInputValue] = useState(dwellTime.toString());
+
+  // Sync with prop when it changes externally
+  useEffect(() => {
+    setInputValue(dwellTime.toString());
+  }, [dwellTime]);
+
+  const handleBlur = () => {
+    const val = parseInt(inputValue);
+    if (!isNaN(val) && val >= 0) {
+      // Round to nearest 5 mins
+      const rounded = Math.round(val / 5) * 5;
+      onDwellTimeChange(rounded);
+      setInputValue(rounded.toString());
+    } else {
+      // Reset to previous valid value
+      setInputValue(dwellTime.toString());
+    }
+  };
 
   return (
     <Reorder.Item 
@@ -550,7 +672,7 @@ function ReorderableStopItem({ pin, idx, activeStopsCount, onRemoveStop, leg }: 
             <Badge 
               status={pin.category === 'Food' ? 'accent' : (pin.category === 'Other' || pin.category === 'Drinks' ? 'default' : 'success')} 
               className={cn(
-                "text-[8px] px-1 py-0 h-3 flex items-center leading-none",
+                "text-[8px] px-1 py-0 h-3.5 flex items-center leading-none",
                 pin.category === 'Drinks' && "bg-purple-500/10 text-purple-500 border-purple-500/20",
                 pin.category === 'Other' && "bg-blue-500/10 text-blue-500 border-blue-500/20"
               )}
@@ -559,12 +681,33 @@ function ReorderableStopItem({ pin, idx, activeStopsCount, onRemoveStop, leg }: 
             </Badge>
           </div>
         </div>
-        <button 
-          onClick={() => onRemoveStop(pin.id)}
-          className="p-1.5 opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 bg-background/50 border border-surface-border rounded-lg px-2 py-0.5">
+            <Clock className="w-2.5 h-2.5 text-muted" />
+            <input 
+              type="text" 
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={inputValue}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "" || /^[0-9]+$/.test(val)) {
+                  setInputValue(val);
+                }
+              }}
+              onBlur={handleBlur}
+              className="w-8 bg-transparent border-none text-[10px] font-black text-foreground outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-[8px] font-bold text-muted uppercase tracking-tighter">min</span>
+          </div>
+          <button 
+            onClick={() => onRemoveStop(pin.id)}
+            className="p-1 opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       
       {idx < activeStopsCount - 1 && (
@@ -650,15 +793,23 @@ function SavedItineraryCard({
           <div className="flex justify-between items-start mb-2">
             <div className="flex-1 min-w-0">
               <h4 className="text-xs font-black text-foreground truncate tracking-tight">{itinerary.title}</h4>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[10px] text-muted font-medium line-clamp-1">{itinerary.description || "No description"}</p>
-                {itinerary.legs?.length > 0 && (
+                {itinerary.stops?.length > 0 && (
                   <>
                     <div className="w-1 h-1 rounded-full bg-surface-border" />
                     <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest whitespace-nowrap">
-                      {formatDuration(itinerary.legs.reduce((acc: number, l: any) => acc + (l.duration_seconds || 0), 0))}
+                      {formatDuration(
+                        (itinerary.legs?.reduce((acc: number, l: any) => acc + (l.duration_seconds || 0), 0) || 0) +
+                        (itinerary.stops?.reduce((acc: number, s: any) => acc + (s.dwell_time_minutes || 0) * 60, 0) || 0)
+                      )}
                     </span>
                   </>
+                )}
+                {itinerary.traveller_type && (
+                  <Badge status="accent" className="text-[7px] px-1 py-0 h-3.5 leading-none">
+                    {itinerary.traveller_type}
+                  </Badge>
                 )}
               </div>
             </div>
@@ -694,8 +845,11 @@ function SavedItineraryCard({
                        isOther ? <MoreHorizontal className="w-2 h-2" /> :
                        <Compass className="w-2 h-2" />}
                     </div>
-                    <span className="text-[10px] font-bold text-muted truncate tracking-tight group-hover/stop:text-foreground transition-colors">
+                    <span className="text-[10px] font-bold text-muted truncate tracking-tight group-hover/stop:text-foreground transition-colors flex-1 min-w-0">
                       {s.pin?.venue_name}
+                    </span>
+                    <span className="text-[8px] font-black text-muted/40 uppercase tracking-tighter whitespace-nowrap">
+                      {s.dwell_time_minutes}m stay
                     </span>
                   </div>
                   

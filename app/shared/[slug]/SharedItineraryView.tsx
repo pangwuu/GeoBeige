@@ -44,10 +44,15 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
   const pins = useMemo(() => stops.map((s: any) => s.pin), [stops]);
   const activeItineraryStops = useMemo(() => pins.map((p: any) => p.id), [pins]);
 
-  const totalDuration = useMemo(() => 
-    itinerary.legs.reduce((acc: number, l: any) => acc + (l.duration_seconds || 0), 0),
-    [itinerary.legs]
-  );
+  const totalDuration = useMemo(() => {
+    const travelTime = itinerary.legs.reduce((acc: number, l: any) => acc + (l.duration_seconds || 0), 0);
+    const dwellTime = itinerary.stops.reduce((acc: number, s: any) => acc + (s.dwell_time_minutes || 0) * 60, 0);
+    return travelTime + dwellTime;
+  }, [itinerary.legs, itinerary.stops]);
+
+  const totalCommuteTime = useMemo(() => {
+    return itinerary.legs.reduce((acc: number, l: any) => acc + (l.duration_seconds || 0), 0);
+  }, [itinerary.legs]);
 
   return (
     <main className="h-screen w-full relative flex flex-col lg:flex-row overflow-hidden bg-background">
@@ -86,12 +91,27 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
           <div className="space-y-4">
             <div>
               <h1 className="text-2xl font-black text-foreground tracking-tight line-clamp-2">{itinerary.title}</h1>
-              <div className="flex items-center gap-3 mt-1.5">
-                <p className="text-[11px] text-muted font-bold uppercase tracking-widest">{stops.length} Stops</p>
-                <div className="w-1 h-1 rounded-full bg-surface-border" />
-                <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">
-                  {formatDuration(totalDuration)} {itinerary.legs[0]?.transport_mode || 'Route'}
-                </span>
+              <div className="flex flex-wrap items-center gap-3 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] text-muted font-bold uppercase tracking-widest">{stops.length} Stops</p>
+                  <div className="w-1 h-1 rounded-full bg-surface-border" />
+                  <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">
+                    {formatDuration(totalDuration)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-1.5 bg-surface/50 border border-surface-border rounded-full px-2 py-0.5">
+                  <Navigation className="w-2.5 h-2.5 text-muted" />
+                  <span className="text-[9px] font-black text-muted uppercase tracking-widest">
+                    Commute: {formatDuration(totalCommuteTime)}
+                  </span>
+                </div>
+
+                {itinerary.traveller_type && (
+                  <Badge status="accent" className="text-[8px] h-4">
+                    {itinerary.traveller_type} Pace
+                  </Badge>
+                )}
               </div>
             </div>
             {itinerary.description && (
@@ -158,6 +178,10 @@ export default function SharedItineraryView({ itinerary }: SharedItineraryViewPr
                         >
                           {pin.category}
                         </Badge>
+                        <div className="flex items-center gap-1 ml-auto">
+                           <Clock className="w-2.5 h-2.5 text-muted/50" />
+                           <span className="text-[10px] font-black text-muted uppercase tracking-widest">{stop.dwell_time_minutes} min stay</span>
+                        </div>
                       </div>
                       <p className="text-[11px] text-muted line-clamp-1 mt-2 font-medium italic opacity-60">
                         {pin.summary}

@@ -3,9 +3,8 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Mail, Loader2, Compass, CheckCircle2, Lock, UserPlus, LogIn } from "lucide-react";
+import { X, Mail, Compass, CheckCircle2, Lock, UserPlus, LogIn } from "lucide-react";
 import { GlassCard, Button, Input, cn } from "@/components/ui";
-import { signIn, signInWithPassword, signUpWithPassword } from "@/app/actions/auth";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthType = 'magic' | 'password' | 'signup';
